@@ -1374,6 +1374,9 @@ app.get('/api/platforms', requireAuth, (req, res) => {
   const tiktokCookieFile = path.join(__dirname, 'tokens', 'tiktok_cookies.json');
   const tiktokStatus = platformTikTok.getCookieStatus ? platformTikTok.getCookieStatus() : { hasCookies: fs.existsSync(tiktokCookieFile) };
 
+  const fbCookieFile = path.join(__dirname, 'tokens', 'facebook_cookies.json');
+  const fbStatus = platformFacebook.getCookieStatus ? platformFacebook.getCookieStatus() : { hasCookies: fs.existsSync(fbCookieFile) };
+
   const list = Object.values(PLATFORM_REGISTRY).map(p => ({
     id:               p.id,
     name:             p.name,
@@ -1383,8 +1386,8 @@ app.get('/api/platforms', requireAuth, (req, res) => {
     configured:       p.isConfigured(),
     supportsTrending: p.supportsTrending || false,
     postsThisSession: stats.platformStats[p.id] || 0,
-    hasCookies:       p.id === 'tiktok' ? tiktokStatus.hasCookies : false,
-    cookieStatus:     p.id === 'tiktok' ? tiktokStatus : null,
+    hasCookies:       p.id === 'tiktok' ? tiktokStatus.hasCookies : (p.id === 'facebook' ? fbStatus.hasCookies : false),
+    cookieStatus:     p.id === 'tiktok' ? tiktokStatus : (p.id === 'facebook' ? fbStatus : null),
     credentialFields: (p.credentialFields || []).map(f => ({
       ...f,
       value:    f.type === 'password' ? '' : (process.env[f.key] || ''),
@@ -1509,6 +1512,59 @@ app.delete('/api/tiktok/accounts/:id', requireAuth, (req, res) => {
     if (!deleted) return res.status(404).json({ ok: false, error: 'Account not found' });
     botLog(`🗑️ Removed TikTok account ID: ${id}`);
     res.json({ ok: true, accounts: platformTikTok.getAccountsList() });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Facebook Cookie & Multi-Account Endpoints
+app.get('/api/facebook/cookies', requireAuth, (req, res) => {
+  const status = platformFacebook.getCookieStatus ? platformFacebook.getCookieStatus() : { hasCookies: false };
+  res.json({ ok: true, status });
+});
+
+app.post('/api/facebook/cookies', requireAuth, (req, res) => {
+  const { cookies } = req.body;
+  if (!cookies) return res.status(400).json({ ok: false, error: 'No cookies provided' });
+  try {
+    const status = platformFacebook.saveCookies(cookies);
+    botOk(`🍪 Facebook cookies updated via admin panel (${status.cookieCount} cookies, valid: ${status.valid})`);
+    res.json({ ok: true, status });
+  } catch (err) {
+    botWarn(`⚠️ Failed to save Facebook cookies: ${err.message}`);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.get('/api/facebook/accounts', requireAuth, (req, res) => {
+  try {
+    const accounts = platformFacebook.getAccountsList ? platformFacebook.getAccountsList() : [];
+    res.json({ ok: true, accounts });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/facebook/accounts', requireAuth, (req, res) => {
+  const { name, cookies } = req.body;
+  if (!cookies) return res.status(400).json({ ok: false, error: 'No cookies provided' });
+  try {
+    const account = platformFacebook.saveAccount(name, cookies);
+    botOk(`✅ Added Facebook account: "${account.name}" (${account.cookieCount} cookies)`);
+    res.json({ ok: true, account, accounts: platformFacebook.getAccountsList() });
+  } catch (err) {
+    botWarn(`⚠️ Failed to add Facebook account: ${err.message}`);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.delete('/api/facebook/accounts/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  try {
+    const deleted = platformFacebook.deleteAccount(id);
+    if (!deleted) return res.status(404).json({ ok: false, error: 'Account not found' });
+    botLog(`🗑️ Removed Facebook account ID: ${id}`);
+    res.json({ ok: true, accounts: platformFacebook.getAccountsList() });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

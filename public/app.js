@@ -270,7 +270,7 @@ function switchTab(tab) {
   document.getElementById('pageTitle').textContent = titles[tab] || tab;
 
   // Load data for tab
-  if (tab === 'accounts')     { loadAccounts(); loadTikTokAccounts(); }
+  if (tab === 'accounts')     { loadAccounts(); loadTikTokAccounts(); loadFacebookAccounts(); }
   if (tab === 'settings')     loadSettings();
   if (tab === 'dashboard')    loadStats();
   if (tab === 'telegram-seo') loadTelegramGroups();
@@ -540,6 +540,7 @@ function videoCard(v, rank, country, platform = 'youtube') {
 // ─── Accounts Tab ────────────────────────────────────────────
 function setupAccountsTab() {
   loadTikTokAccounts();
+  loadFacebookAccounts();
   document.getElementById('reloadAccountsBtn').addEventListener('click', async () => {
     const btn = document.getElementById('reloadAccountsBtn');
     btn.disabled = true;
@@ -1186,6 +1187,31 @@ function renderPlatformManagerRow(p) {
     cookieBadge = `<span class="badge badge-purple" style="font-size: 0.75rem;">🍪 Cookies Active</span>`;
   }
 
+    const facebookCookieSection = p.id === 'facebook' ? `
+    <div style="background: rgba(24, 119, 242, 0.06); border: 1px solid rgba(24, 119, 242, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-weight: 600; font-size: 0.85rem; color: #fff;">🍪 Facebook Session Cookies</span>
+        ${p.cookieStatus && p.cookieStatus.hasCookies ? (
+          p.cookieStatus.expired
+            ? `<span class="badge badge-red" style="font-size: 0.72rem;">⚠️ Expired (${p.cookieStatus.message || 'Session expired'})`
+            : `<span class="badge badge-green" style="font-size: 0.72rem;">✅ Active (${p.cookieStatus.cookieCount} cookies)`
+        ) : `<span class="badge badge-yellow" style="font-size: 0.72rem;">No cookies uploaded</span>`}
+      </div>
+      <p style="font-size: 0.78rem; color: #94a3b8; margin: 0 0 10px 0;">
+        Export cookies from <strong>Cookie-Editor</strong> (JSON) on facebook.com and paste below, or upload the <code>.json</code> file:
+      </p>
+      <textarea id="facebook-cookie-input" class="custom-input" rows="4" style="font-family: monospace; font-size: 0.75rem; width: 100%; box-sizing: border-box; resize: vertical;" placeholder='Paste JSON here... [ { "name": "c_user", "value": "...", ... } ]'></textarea>
+      <div style="display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap;">
+        <button type="button" class="btn btn-primary btn-sm" onclick="saveFacebookCookies()" style="background: #1877f2; border-color: #1877f2;">
+          <span id="btn-save-fb-cookies-text">📥 Save Cookies</span>
+        </button>
+        <label class="btn btn-ghost btn-sm" style="cursor: pointer; margin: 0;">
+          📁 Upload JSON <input type="file" id="facebook-cookie-file" accept=".json" style="display:none;" onchange="handleFacebookCookieFileUpload(event)">
+        </label>
+        <div id="facebook-cookie-msg" style="font-size: 0.8rem; margin-left: 6px;"></div>
+      </div>
+    </div>` : '';
+
   const tiktokCookieSection = p.id === 'tiktok' ? `
     <div style="background: rgba(254, 44, 85, 0.06); border: 1px solid rgba(254, 44, 85, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -1235,6 +1261,7 @@ function renderPlatformManagerRow(p) {
       <div class="pm-form hidden" id="pm-form-${p.id}">
         <div class="pm-form-inner">
           ${tiktokCookieSection}
+          ${facebookCookieSection}
           ${fields}
           <div class="pm-form-actions">
             <button class="btn btn-primary btn-sm" onclick="savePlatformCredentials('${p.id}')">
@@ -2024,4 +2051,178 @@ async function deleteTikTokAccount(id) {
   } catch (err) {
     toast(`❌ ${err.message}`, 'error');
   }
+}
+
+
+// ─── Facebook Multi-Account Management ───────────────────────
+async function loadFacebookAccounts() {
+  const tbody = document.getElementById('facebookAccountsBody');
+  const badge = document.getElementById('facebookAccountCountBadge');
+  if (!tbody) return;
+
+  try {
+    const res = await api('/api/facebook/accounts');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.accounts)) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">Failed to load Facebook accounts.</td></tr>';
+      return;
+    }
+
+    const accounts = data.accounts;
+    const activeCount = accounts.filter(a => a.valid).length;
+    if (badge) {
+      badge.textContent = `${activeCount} active`;
+      badge.className = activeCount > 0 ? 'badge badge-green' : 'badge badge-yellow';
+    }
+
+    if (accounts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-cell">No Facebook accounts added yet. Click "+ Add Facebook Account" to add cookies.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = accounts.map(a => `
+      <tr>
+        <td><strong>${escapeHtml(a.name)}</strong></td>
+        <td><span class="badge badge-purple">${a.cookieCount} cookies</span></td>
+        <td>${a.postsCount || 0}</td>
+        <td>${a.lastUsed ? timeAgo(new Date(a.lastUsed)) : 'Never'}</td>
+        <td>
+          <span class="badge ${a.valid ? 'badge-green' : 'badge-red'}">
+            ${a.valid ? '✅ Active' : '⚠️ ' + escapeHtml(a.reason || 'Expired')}
+          </span>
+        </td>
+        <td>
+          <button class="btn btn-ghost btn-sm btn-icon" onclick="deleteFacebookAccount('${a.id}')" title="Delete Account">🗑️</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="empty-cell">Error: ${escapeHtml(err.message)}</td></tr>`;
+  }
+}
+
+async function submitNewFacebookAccount() {
+  const nameInput = document.getElementById('newFacebookAccountName');
+  const cookieInput = document.getElementById('newFacebookAccountCookies');
+  const msgEl = document.getElementById('newFacebookAccountMsg');
+  const btn = document.getElementById('btnSaveFacebookAccount');
+
+  const name = nameInput ? nameInput.value.trim() : '';
+  const cookieStr = cookieInput ? cookieInput.value.trim() : '';
+
+  if (!cookieStr) {
+    if (msgEl) msgEl.innerHTML = '<span style="color:#f87171;">⚠️ Please paste cookie JSON</span>';
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(cookieStr);
+  } catch (e) {
+    if (msgEl) msgEl.innerHTML = `<span style="color:#f87171;">❌ Invalid JSON: ${e.message}</span>`;
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
+
+  try {
+    const res = await api('/api/facebook/accounts', 'POST', { name, cookies: parsed });
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to save account');
+
+    toast(`✅ Added Facebook account "${data.account.name}"!`, 'success');
+    if (nameInput) nameInput.value = '';
+    if (cookieInput) cookieInput.value = '';
+    if (msgEl) msgEl.innerHTML = '';
+    closeModal('addFacebookAccountModal');
+    loadFacebookAccounts();
+    if (typeof loadPlatforms === 'function') loadPlatforms();
+  } catch (err) {
+    if (msgEl) msgEl.innerHTML = `<span style="color:#f87171;">❌ ${err.message}</span>`;
+    toast(err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📥 Save Account'; }
+  }
+}
+
+function handleNewFacebookAccountFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const msgEl = document.getElementById('newFacebookAccountFileMsg');
+  if (msgEl) msgEl.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const input = document.getElementById('newFacebookAccountCookies');
+    if (input) input.value = text;
+  };
+  reader.readAsText(file);
+}
+
+async function deleteFacebookAccount(id) {
+  if (!confirm('Are you sure you want to remove this Facebook account?')) return;
+  try {
+    const res = await api(`/api/facebook/accounts/${id}`, 'DELETE');
+    const data = await res.json();
+    if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to delete');
+    toast('Facebook account deleted', 'info');
+    loadFacebookAccounts();
+    if (typeof loadPlatforms === 'function') loadPlatforms();
+  } catch (err) {
+    toast(`❌ ${err.message}`, 'error');
+  }
+}
+
+async function saveFacebookCookies(explicitJson) {
+  const input = document.getElementById('facebook-cookie-input');
+  const msgEl = document.getElementById('facebook-cookie-msg');
+  const btnText = document.getElementById('btn-save-fb-cookies-text');
+  const jsonStr = explicitJson || (input ? input.value.trim() : '');
+
+  if (!jsonStr) {
+    if (msgEl) msgEl.innerHTML = '<span style="color: #f87171;">⚠️ Please paste cookie JSON</span>';
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch (e) {
+    if (msgEl) msgEl.innerHTML = `<span style="color: #f87171;">❌ Invalid JSON: ${e.message}</span>`;
+    return;
+  }
+
+  if (btnText) btnText.textContent = '⏳ Saving...';
+
+  try {
+    const res = await api('/api/facebook/cookies', 'POST', { cookies: parsed });
+    const data = await res.json();
+    if (data.ok) {
+      if (btnText) btnText.textContent = '📥 Save Cookies';
+      if (msgEl) msgEl.innerHTML = `<span style="color: #34d399;">✅ Saved ${data.status.cookieCount} cookies! Status: Active</span>`;
+      if (input) input.value = '';
+      toast(`Facebook cookies updated (${data.status.cookieCount} cookies)!`, 'ok');
+      await loadPlatforms();
+      loadFacebookAccounts();
+    } else {
+      throw new Error(data.error || 'Failed to save');
+    }
+  } catch (err) {
+    if (btnText) btnText.textContent = '📥 Save Cookies';
+    if (msgEl) msgEl.innerHTML = `<span style="color: #f87171;">❌ ${err.message}</span>`;
+    toast(err.message, 'error');
+  }
+}
+
+function handleFacebookCookieFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const input = document.getElementById('facebook-cookie-input');
+    if (input) input.value = text;
+    saveFacebookCookies(text);
+  };
+  reader.readAsText(file);
 }
