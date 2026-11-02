@@ -6,6 +6,7 @@
 
 /* ─── Dark Theme (default) ───────────────────────────────── */
 :root {
+  color-scheme: dark;
   --bg-base:         #07070f;
   --bg-sidebar:      #0c0c18;
   --surface:         #10101e;
@@ -47,6 +48,7 @@
 
 /* ─── Light Theme ────────────────────────────────────────── */
 [data-theme="light"] {
+  color-scheme: light;
   --bg-base:         #f0f2f8;
   --bg-sidebar:      #ffffff;
   --surface:         #ffffff;
@@ -568,7 +570,12 @@ input, select, textarea { font-family: inherit; }
   position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
   color: var(--text-muted); pointer-events: none; font-size: 12px;
 }
-.custom-select option { background: #0f0f1a; }
+.custom-select option,
+select option,
+.form-input option {
+  background: #10101e;
+  color: #f1f5f9;
+}
 
 .form-textarea { resize: vertical; min-height: 80px; }
 
@@ -1065,16 +1072,30 @@ code {
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
 }
 
+[data-theme="light"] select,
 [data-theme="light"] .custom-input,
-[data-theme="light"] .custom-select {
-  background: var(--bg-input);
-  border-color: var(--border);
-  color: var(--text-primary);
+[data-theme="light"] .custom-select,
+[data-theme="light"] .form-input,
+[data-theme="light"] .form-textarea {
+  color-scheme: light;
+  background: #ffffff;
+  border-color: rgba(0, 0, 0, 0.14);
+  color: #0f172a;
 }
+[data-theme="light"] select:focus,
 [data-theme="light"] .custom-input:focus,
-[data-theme="light"] .custom-select:focus {
-  background: var(--bg-input-focus);
+[data-theme="light"] .custom-select:focus,
+[data-theme="light"] .form-input:focus,
+[data-theme="light"] .form-textarea:focus {
+  background: #ffffff;
   border-color: var(--purple);
+}
+
+[data-theme="light"] select option,
+[data-theme="light"] .custom-select option,
+[data-theme="light"] .form-input option {
+  background: #ffffff;
+  color: #0f172a;
 }
 
 /* Terminal always stays dark for readability */

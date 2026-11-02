@@ -1190,7 +1190,7 @@ function renderPlatformManagerRow(p) {
     const facebookCookieSection = p.id === 'facebook' ? `
     <div style="background: rgba(24, 119, 242, 0.06); border: 1px solid rgba(24, 119, 242, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <span style="font-weight: 600; font-size: 0.85rem; color: #fff;">🍪 Facebook Session Cookies</span>
+        <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">🍪 Facebook Session Cookies</span>
         ${p.cookieStatus && p.cookieStatus.hasCookies ? (
           p.cookieStatus.expired
             ? `<span class="badge badge-red" style="font-size: 0.72rem;">⚠️ Expired (${p.cookieStatus.message || 'Session expired'})`
@@ -1215,7 +1215,7 @@ function renderPlatformManagerRow(p) {
   const tiktokCookieSection = p.id === 'tiktok' ? `
     <div style="background: rgba(254, 44, 85, 0.06); border: 1px solid rgba(254, 44, 85, 0.25); border-radius: 8px; padding: 14px; margin-bottom: 14px;">
       <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-        <span style="font-weight: 600; font-size: 0.85rem; color: #fff;">🍪 TikTok Session Cookies</span>
+        <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-primary);">🍪 TikTok Session Cookies</span>
         ${p.cookieStatus && p.cookieStatus.hasCookies ? (
           p.cookieStatus.expired
             ? `<span class="badge badge-red" style="font-size: 0.72rem;">⚠️ Expired (${p.cookieStatus.reason || `${p.cookieStatus.ageHours}h ago`})</span>`
