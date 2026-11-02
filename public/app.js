@@ -1456,6 +1456,25 @@ function escHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+function escapeHtml(str) {
+  return escHtml(str);
+}
+
+function timeAgo(date) {
+  if (!date) return 'Never';
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return 'Never';
+  const seconds = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (seconds < 5) return 'just now';
+  if (seconds < 60) return `${seconds}s ago`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 // Expose for inline onclick handlers
 window.deleteAccount             = deleteAccount;
 window.switchTab                 = switchTab;
@@ -2226,3 +2245,19 @@ function handleFacebookCookieFileUpload(event) {
   };
   reader.readAsText(file);
 }
+
+// Global window assignments for Facebook and TikTok management
+window.escapeHtml = escapeHtml;
+window.timeAgo = timeAgo;
+window.loadTikTokAccounts = loadTikTokAccounts;
+window.submitNewTikTokAccount = submitNewTikTokAccount;
+window.handleNewTikTokAccountFileUpload = handleNewTikTokAccountFileUpload;
+window.deleteTikTokAccount = deleteTikTokAccount;
+window.saveTikTokCookies = saveTikTokCookies;
+window.handleTikTokCookieFileUpload = handleTikTokCookieFileUpload;
+window.loadFacebookAccounts = loadFacebookAccounts;
+window.submitNewFacebookAccount = submitNewFacebookAccount;
+window.handleNewFacebookAccountFileUpload = handleNewFacebookAccountFileUpload;
+window.deleteFacebookAccount = deleteFacebookAccount;
+window.saveFacebookCookies = saveFacebookCookies;
+window.handleFacebookCookieFileUpload = handleFacebookCookieFileUpload;
