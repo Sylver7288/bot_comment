@@ -342,8 +342,9 @@ async function postComment(postUrl, comment) {
     let cleanUrl = postUrl.trim();
     if (cleanUrl.includes('facebook.com') && cleanUrl.includes('?')) {
       const [base, query] = cleanUrl.split('?');
-      // Keep v=videoId for /watch/?v=123, otherwise drop params
-      if (base.includes('/watch/')) {
+      if (cleanUrl.includes('/search')) {
+        cleanUrl = postUrl.trim();
+      } else if (base.includes('/watch/')) {
         const vParam = new URLSearchParams(query).get('v');
         cleanUrl = vParam ? `${base}?v=${vParam}` : cleanUrl;
       } else {
@@ -363,6 +364,30 @@ async function postComment(postUrl, comment) {
     await delay(2000);
     await dismissOverlays(page);
     await delay(1000);
+
+    // If it's a search page (e.g. from Trending topics), navigate into top video in results
+    if (cleanUrl.includes('/search')) {
+      console.log('🔍 Facebook search page detected — finding top video in results...');
+      const topVideoUrl = await page.evaluate(() => {
+        const links = Array.from(document.querySelectorAll('a[href*="/watch/?v="], a[href*="/reel/"], a[href*="/videos/"]'));
+        for (const l of links) {
+          if (l.href && !l.href.includes('/search')) return l.href;
+        }
+        return null;
+      });
+
+      if (topVideoUrl) {
+        console.log(`🎬 Navigating into top video: ${topVideoUrl}`);
+        cleanUrl = topVideoUrl.split('&')[0];
+        await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+        await page.waitForFunction(() => {
+          const text = document.body ? document.body.innerText : '';
+          return text.length > 50 || document.querySelectorAll('div[role="textbox"], [contenteditable="true"]').length > 0;
+        }, { timeout: 20000 }).catch(() => {});
+        await delay(2000);
+        await dismissOverlays(page);
+      }
+    }
 
     // If it's a Reel or Watch page where comments are in a side drawer, try clicking Comment icon
     const isReelOrWatch = cleanUrl.includes('/reel/') || cleanUrl.includes('/watch');

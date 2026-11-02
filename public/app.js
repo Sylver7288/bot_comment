@@ -454,6 +454,78 @@ async function loadKeywordBadges() {
 }
 
 // ─── Trending Tab ─────────────────────────────────────────────
+let currentTrendingVideos = [];
+let currentTrendingPlatform = 'youtube';
+let currentTrendingCountry = null;
+
+function sendAllTrendingToPostComment() {
+  if (!currentTrendingVideos || currentTrendingVideos.length === 0) {
+    toast('No trending videos loaded yet. Click "Fetch Trending" first.', 'warn');
+    return;
+  }
+
+  const urls = currentTrendingVideos.map(v => v.url).filter(Boolean);
+  if (urls.length === 0) {
+    toast('No valid video URLs found.', 'error');
+    return;
+  }
+
+  const platform = currentTrendingPlatform || 'youtube';
+  const country = currentTrendingCountry;
+
+  if (country) {
+    const postCountryEl = document.getElementById('postCountrySelect');
+    if (postCountryEl) postCountryEl.value = country.code;
+    updateLanguageHint();
+  }
+
+  const input = document.getElementById('videoUrlInput');
+  if (input) {
+    input.value = urls.join('\n');
+  }
+
+  selectedPlatforms.clear();
+  selectedPlatforms.add(platform);
+  renderPlatformToggles();
+
+  switchTab('post');
+  toast(`🚀 Imported ${urls.length} ${platform} video links! Click "Blast Comments" to begin.`, 'success');
+}
+
+async function importTrendingToPostForm() {
+  const btn = document.getElementById('btnImportTrending');
+  if (btn) btn.textContent = '⏳ Loading...';
+
+  try {
+    const platform = selectedPlatforms.size > 0 ? Array.from(selectedPlatforms)[0] : 'facebook';
+    const countryEl = document.getElementById('postCountrySelect');
+    const countryCode = countryEl ? countryEl.value : 'IN';
+
+    const res = await api(`/api/trending?region=${countryCode}&max=10&platform=${platform}`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Failed to fetch trending');
+
+    const videos = data.videos || [];
+    const urls = videos.map(v => v.url).filter(Boolean);
+
+    if (urls.length === 0) {
+      toast('No trending video links found for this platform/region', 'warn');
+      return;
+    }
+
+    const input = document.getElementById('videoUrlInput');
+    if (input) {
+      input.value = urls.join('\n');
+    }
+
+    toast(`🔥 Auto-filled ${urls.length} ${platform} trending video links! Ready to blast.`, 'success');
+  } catch (err) {
+    toast(`❌ Failed to load trending: ${err.message}`, 'error');
+  } finally {
+    if (btn) btn.textContent = '⚡ Auto-Fill Trending Links';
+  }
+}
+
 function setupTrendingTab() {
   document.getElementById('fetchTrendingBtn').addEventListener('click', fetchTrending);
 }
@@ -481,7 +553,30 @@ async function fetchTrending() {
     if (!res.ok) throw new Error(data.error || 'Failed to fetch');
 
     const { videos } = data;
-    status.textContent = `✅ ${videos.length} ${platformName} trending items in ${country.flag} ${country.name}`;
+    currentTrendingVideos = videos;
+    currentTrendingPlatform = platform;
+    currentTrendingCountry = country;
+
+    const sendAllBtn = document.getElementById('sendAllTrendingBtn');
+    const sendCount = document.getElementById('trendingCountNum');
+    if (sendAllBtn && sendCount) {
+      if (videos.length > 0) {
+        sendCount.textContent = videos.length;
+        sendAllBtn.style.display = 'inline-flex';
+      } else {
+        sendAllBtn.style.display = 'none';
+      }
+    }
+
+    status.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;width:100%;">
+        <span>✅ ${videos.length} ${platformName} trending items in ${country.flag} ${country.name}</span>
+        ${videos.length > 0 ? `
+          <button class="btn btn-success btn-sm" onclick="sendAllTrendingToPostComment()" style="font-weight:600;">
+            🚀 Blast All ${videos.length} Links to Post Comment
+          </button>
+        ` : ''}
+      </div>`;
     status.className = 'section-status';
 
     if (videos.length === 0) {
@@ -2261,3 +2356,5 @@ window.handleNewFacebookAccountFileUpload = handleNewFacebookAccountFileUpload;
 window.deleteFacebookAccount = deleteFacebookAccount;
 window.saveFacebookCookies = saveFacebookCookies;
 window.handleFacebookCookieFileUpload = handleFacebookCookieFileUpload;
+window.sendAllTrendingToPostComment = sendAllTrendingToPostComment;
+window.importTrendingToPostForm = importTrendingToPostForm;

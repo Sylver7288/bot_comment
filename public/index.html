@@ -202,7 +202,12 @@
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">🎯 Video URL(s) <span class="badge badge-purple" style="font-size:11px;font-weight:normal;">Bulk Multi-Line Supported</span></label>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <label class="form-label" style="margin:0;">🎯 Video URL(s) <span class="badge badge-purple" style="font-size:11px;font-weight:normal;">Bulk Multi-Line Supported</span></label>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btnImportTrending" onclick="importTrendingToPostForm()" style="font-size:12px;color:var(--purple);padding:3px 10px;border:1px dashed var(--purple);border-radius:6px;cursor:pointer;">
+                      ⚡ Auto-Fill Trending Links
+                    </button>
+                  </div>
                   <div class="input-row" style="align-items:flex-start;">
                     <textarea id="videoUrlInput" class="form-input" rows="4" style="resize:vertical;font-family:monospace;font-size:13px;" placeholder="Paste one or multiple video URLs (one per line):&#10;https://www.tiktok.com/@creator/video/123...&#10;https://www.tiktok.com/@creator/video/456..."></textarea>
                     <button class="btn btn-ghost btn-icon" id="pasteBtn" title="Paste from clipboard" style="margin-top:2px;">📋</button>
@@ -271,6 +276,9 @@
                 </div>
                 <button class="btn btn-primary btn-lg" id="fetchTrendingBtn">
                   🔥 Fetch Trending
+                </button>
+                <button class="btn btn-success btn-lg" id="sendAllTrendingBtn" onclick="sendAllTrendingToPostComment()" style="display:none;">
+                  🚀 Send All to Post Comment (<span id="trendingCountNum">0</span>)
                 </button>
               </div>
             </div>
