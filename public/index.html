@@ -474,6 +474,111 @@
               </div>
             </div>
           </div>
+
+          <!-- 📸 Instagram Accounts Card -->
+          <div class="card" style="margin-top: 24px;">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <h3 class="card-title" style="margin:0;">📸 Instagram Accounts</h3>
+                <span class="badge badge-purple" style="font-size:11px;">Auto-Rotating</span>
+                <span id="instagramAccountCountBadge" class="badge badge-yellow" style="font-size:11px;">0 active</span>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-success btn-sm" onclick="openModal('addInstagramAccountModal')">➕ Add Instagram Account</button>
+                <button class="btn btn-ghost btn-sm" onclick="loadInstagramAccounts()">↻ Refresh</button>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-wrap">
+                <table class="data-table" id="instagramAccountsTable">
+                  <thead>
+                    <tr>
+                      <th>Account Name</th>
+                      <th>Username</th>
+                      <th>Cookies / Auth</th>
+                      <th>Comments Posted</th>
+                      <th>Last Used</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="instagramAccountsBody">
+                    <tr><td colspan="7" class="empty-cell">Loading Instagram accounts...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 🐦 Twitter / X Accounts Card -->
+          <div class="card" style="margin-top: 24px;">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <h3 class="card-title" style="margin:0;">🐦 Twitter / X Accounts</h3>
+                <span class="badge badge-purple" style="font-size:11px;">API v2 Rotating</span>
+                <span id="twitterAccountCountBadge" class="badge badge-yellow" style="font-size:11px;">0 active</span>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-success btn-sm" onclick="openModal('addTwitterAccountModal')">➕ Add Twitter / X Account</button>
+                <button class="btn btn-ghost btn-sm" onclick="loadTwitterAccounts()">↻ Refresh</button>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-wrap">
+                <table class="data-table" id="twitterAccountsTable">
+                  <thead>
+                    <tr>
+                      <th>Account Name</th>
+                      <th>Handle / User</th>
+                      <th>API Key</th>
+                      <th>Comments Posted</th>
+                      <th>Last Used</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="twitterAccountsBody">
+                    <tr><td colspan="7" class="empty-cell">Loading Twitter / X accounts...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 🟠 Reddit Accounts Card -->
+          <div class="card" style="margin-top: 24px;">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <h3 class="card-title" style="margin:0;">🟠 Reddit Accounts</h3>
+                <span class="badge badge-purple" style="font-size:11px;">OAuth Auto-Rotating</span>
+                <span id="redditAccountCountBadge" class="badge badge-yellow" style="font-size:11px;">0 active</span>
+              </div>
+              <div style="display:flex;gap:8px;">
+                <button class="btn btn-success btn-sm" onclick="openModal('addRedditAccountModal')">➕ Add Reddit Account</button>
+                <button class="btn btn-ghost btn-sm" onclick="loadRedditAccounts()">↻ Refresh</button>
+              </div>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-wrap">
+                <table class="data-table" id="redditAccountsTable">
+                  <thead>
+                    <tr>
+                      <th>Account Name</th>
+                      <th>Reddit User</th>
+                      <th>Client ID</th>
+                      <th>Comments Posted</th>
+                      <th>Last Used</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="redditAccountsBody">
+                    <tr><td colspan="7" class="empty-cell">Loading Reddit accounts...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </section>
 
         <!-- ─────────── TELEGRAM SEO & GROUP FINDER ─────────── -->
@@ -1018,6 +1123,168 @@
       <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 24px;">
         <button class="btn btn-ghost btn-sm" onclick="closeModal('addFacebookAccountModal')">Cancel</button>
         <button class="btn btn-primary btn-sm" id="btnSaveFacebookAccount" onclick="submitNewFacebookAccount()" style="background: linear-gradient(135deg, #1877f2, #1464c8); border-color: #1877f2;">
+          📥 Save Account
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Add Instagram Account Modal ── -->
+  <div id="addInstagramAccountModal" class="modal-overlay hidden">
+    <div class="modal-box modal-box-md">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-header-icon" style="background: rgba(225,48,108,0.12); color: #e1306c; border-color: rgba(225,48,108,0.3);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+          </div>
+          <div>
+            <h3>Add Instagram Account</h3>
+            <p class="modal-header-sub">Session Cookie Authentication & Multi-Profile Rotation</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('addInstagramAccountModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Export cookies from <strong>Cookie-Editor</strong> (Export as JSON) while logged into instagram.com and paste below, or upload the <code>.json</code> file.
+        </p>
+        <div class="form-group">
+          <label class="form-label">Account Label</label>
+          <input type="text" id="newInstagramAccountName" class="form-input" placeholder="e.g. IG_Creator_01" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cookie JSON Payload</label>
+          <textarea id="newInstagramAccountCookies" class="form-input" rows="5" style="font-family: monospace; font-size: 12px; resize: vertical;" placeholder='Paste JSON here... [ { "name": "sessionid", "value": "..." } ]'></textarea>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
+          <label class="btn btn-ghost btn-sm" style="cursor: pointer; margin: 0;">
+            📁 Upload JSON <input type="file" id="newInstagramAccountFile" accept=".json" style="display:none;" onchange="handleNewInstagramAccountFileUpload(event)">
+          </label>
+          <span id="newInstagramAccountFileMsg" style="font-size: 12px; color: #94a3b8;"></span>
+        </div>
+        <div class="pm-form-inner" style="grid-template-columns:1fr 1fr;gap:10px;margin-top:14px;border-top:1px solid var(--border);padding-top:12px;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" style="font-size:11px;">Username (Optional Fallback)</label>
+            <input type="text" id="newInstagramUsername" class="form-input" placeholder="ig_handle" />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label" style="font-size:11px;">Password (Optional Fallback)</label>
+            <input type="password" id="newInstagramPassword" class="form-input" placeholder="••••••••" />
+          </div>
+        </div>
+        <div id="newInstagramAccountMsg" style="font-size: 12px; margin-top: 10px;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 24px;">
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('addInstagramAccountModal')">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnSaveInstagramAccount" onclick="submitNewInstagramAccount()" style="background: linear-gradient(135deg, #e1306c, #c13584); border-color: #e1306c;">
+          📥 Save Account
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Add Twitter / X Account Modal ── -->
+  <div id="addTwitterAccountModal" class="modal-overlay hidden">
+    <div class="modal-box modal-box-md">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-header-icon" style="background: rgba(29,155,240,0.12); color: #1d9bf0; border-color: rgba(29,155,240,0.3);">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          </div>
+          <div>
+            <h3>Add Twitter / X Account</h3>
+            <p class="modal-header-sub">API v2 Developer App Credentials</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('addTwitterAccountModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Enter Twitter / X Developer Portal API keys for this profile.
+        </p>
+        <div class="pm-form-inner" style="grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Account Label</label>
+            <input type="text" id="newTwitterAccountName" class="form-input" placeholder="e.g. X_Marketing_01" />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Handle / Screen Name</label>
+            <input type="text" id="newTwitterAccountUsername" class="form-input" placeholder="e.g. @botusername" />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">API Key</label>
+            <input type="text" id="newTwitterApiKey" class="form-input" placeholder="API Key" />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">API Secret</label>
+            <input type="password" id="newTwitterApiSecret" class="form-input" placeholder="••••••••••••••••" />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Access Token</label>
+            <input type="text" id="newTwitterAccessToken" class="form-input" placeholder="Access Token" />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Access Token Secret</label>
+            <input type="password" id="newTwitterAccessSecret" class="form-input" placeholder="••••••••••••••••" />
+          </div>
+        </div>
+        <div id="newTwitterAccountMsg" style="font-size: 12px; margin-top: 10px;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 24px;">
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('addTwitterAccountModal')">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnSaveTwitterAccount" onclick="submitNewTwitterAccount()" style="background: linear-gradient(135deg, #1d9bf0, #0c85d0); border-color: #1d9bf0;">
+          📥 Save Account
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Add Reddit Account Modal ── -->
+  <div id="addRedditAccountModal" class="modal-overlay hidden">
+    <div class="modal-box modal-box-md">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <div class="modal-header-icon" style="background: rgba(255,69,0,0.12); color: #ff4500; border-color: rgba(255,69,0,0.3);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.688-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+          </div>
+          <div>
+            <h3>Add Reddit Account</h3>
+            <p class="modal-header-sub">Snoowrap Script App & OAuth Profile</p>
+          </div>
+        </div>
+        <button class="modal-close" onclick="closeModal('addRedditAccountModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-desc">
+          Create an authorized "script" app at <strong>reddit.com/prefs/apps</strong>, then enter the credentials below.
+        </p>
+        <div class="pm-form-inner" style="grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Account Label</label>
+            <input type="text" id="newRedditAccountName" class="form-input" placeholder="e.g. Reddit_Profile_01" />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Reddit Username</label>
+            <input type="text" id="newRedditUsername" class="custom-input" placeholder="e.g. my_bot_user" />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Reddit Password</label>
+            <input type="password" id="newRedditPassword" class="custom-input" placeholder="••••••••" />
+          </div>
+          <div class="form-group" style="margin:0;">
+            <label class="form-label">Client ID (under app name)</label>
+            <input type="text" id="newRedditClientId" class="custom-input" placeholder="e.g. 14-char ID" />
+          </div>
+          <div class="form-group" style="grid-column:1 / -1;margin:0;">
+            <label class="form-label">Client Secret</label>
+            <input type="password" id="newRedditClientSecret" class="custom-input" placeholder="••••••••••••••••••••••••••" />
+          </div>
+        </div>
+        <div id="newRedditAccountMsg" style="font-size: 12px; margin-top: 10px;"></div>
+      </div>
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 24px;">
+        <button class="btn btn-ghost btn-sm" onclick="closeModal('addRedditAccountModal')">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="btnSaveRedditAccount" onclick="submitNewRedditAccount()" style="background: linear-gradient(135deg, #ff4500, #cc3700); border-color: #ff4500;">
           📥 Save Account
         </button>
       </div>

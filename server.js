@@ -762,10 +762,19 @@ app.get('/api/status', requireAuth, (req, res) => {
   const hours    = Math.floor(uptimeMs / 3600000);
   const minutes  = Math.floor((uptimeMs % 3600000) / 60000);
   const seconds  = Math.floor((uptimeMs % 60000) / 1000);
+
+  const ttCount = platformTikTok.getAccountsList ? platformTikTok.getAccountsList().filter(a => a.valid).length : 0;
+  const fbCount = platformFacebook.getAccountsList ? platformFacebook.getAccountsList().filter(a => a.valid).length : 0;
+  const igCount = platformInstagram.getAccountsList ? platformInstagram.getAccountsList().filter(a => a.valid).length : 0;
+  const twCount = platformTwitter.getAccountsList ? platformTwitter.getAccountsList().filter(a => a.valid).length : 0;
+  const rdCount = platformReddit.getAccountsList ? platformReddit.getAccountsList().filter(a => a.valid).length : 0;
+  const totalActiveAccounts = users.length + ttCount + fbCount + igCount + twCount + rdCount;
+
   res.json({
     uptime:          `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`,
     uptimeMs,
-    accountsLoaded:  users.length,
+    accountsLoaded:  totalActiveAccounts,
+    youtubeAccounts: users.length,
     commentsPosted:  stats.commentsPosted,
     lastCommentTime: stats.lastCommentTime,
     commentHistory:  stats.commentHistory,
@@ -1569,6 +1578,114 @@ app.delete('/api/facebook/accounts/:id', requireAuth, (req, res) => {
     if (!deleted) return res.status(404).json({ ok: false, error: 'Account not found' });
     botLog(`🗑️ Removed Facebook account ID: ${id}`);
     res.json({ ok: true, accounts: platformFacebook.getAccountsList() });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Instagram Multi-Account Endpoints
+app.get('/api/instagram/accounts', requireAuth, (req, res) => {
+  try {
+    const accounts = platformInstagram.getAccountsList ? platformInstagram.getAccountsList() : [];
+    res.json({ ok: true, accounts });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/instagram/accounts', requireAuth, (req, res) => {
+  const { name, cookies, username, password } = req.body;
+  try {
+    const account = platformInstagram.saveAccount(name, cookies, { username, password });
+    botOk(`✅ Added Instagram account: "${account.name}"`);
+    res.json({ ok: true, account, accounts: platformInstagram.getAccountsList() });
+  } catch (err) {
+    botWarn(`⚠️ Failed to add Instagram account: ${err.message}`);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.delete('/api/instagram/accounts/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  try {
+    const deleted = platformInstagram.deleteAccount(id);
+    if (!deleted) return res.status(404).json({ ok: false, error: 'Account not found' });
+    botLog(`🗑️ Removed Instagram account ID: ${id}`);
+    res.json({ ok: true, accounts: platformInstagram.getAccountsList() });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Twitter / X Multi-Account Endpoints
+app.get('/api/twitter/accounts', requireAuth, (req, res) => {
+  try {
+    const accounts = platformTwitter.getAccountsList ? platformTwitter.getAccountsList() : [];
+    res.json({ ok: true, accounts });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/twitter/accounts', requireAuth, (req, res) => {
+  const { name, username, apiKey, apiSecret, accessToken, accessSecret } = req.body;
+  if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+    return res.status(400).json({ ok: false, error: 'All Twitter API keys (API Key, Secret, Access Token, Access Secret) are required' });
+  }
+  try {
+    const account = platformTwitter.saveAccount(name, { username, apiKey, apiSecret, accessToken, accessSecret });
+    botOk(`✅ Added Twitter / X account: "${account.name}"`);
+    res.json({ ok: true, account, accounts: platformTwitter.getAccountsList() });
+  } catch (err) {
+    botWarn(`⚠️ Failed to add Twitter account: ${err.message}`);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.delete('/api/twitter/accounts/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  try {
+    const deleted = platformTwitter.deleteAccount(id);
+    if (!deleted) return res.status(404).json({ ok: false, error: 'Account not found' });
+    botLog(`🗑️ Removed Twitter account ID: ${id}`);
+    res.json({ ok: true, accounts: platformTwitter.getAccountsList() });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Reddit Multi-Account Endpoints
+app.get('/api/reddit/accounts', requireAuth, (req, res) => {
+  try {
+    const accounts = platformReddit.getAccountsList ? platformReddit.getAccountsList() : [];
+    res.json({ ok: true, accounts });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/reddit/accounts', requireAuth, (req, res) => {
+  const { name, username, password, clientId, clientSecret, userAgent } = req.body;
+  if (!username || !password || !clientId || !clientSecret) {
+    return res.status(400).json({ ok: false, error: 'Reddit Username, Password, Client ID, and Client Secret are required' });
+  }
+  try {
+    const account = platformReddit.saveAccount(name, { username, password, clientId, clientSecret, userAgent });
+    botOk(`✅ Added Reddit account: "${account.name}"`);
+    res.json({ ok: true, account, accounts: platformReddit.getAccountsList() });
+  } catch (err) {
+    botWarn(`⚠️ Failed to add Reddit account: ${err.message}`);
+    res.status(400).json({ ok: false, error: err.message });
+  }
+});
+
+app.delete('/api/reddit/accounts/:id', requireAuth, (req, res) => {
+  const { id } = req.params;
+  try {
+    const deleted = platformReddit.deleteAccount(id);
+    if (!deleted) return res.status(404).json({ ok: false, error: 'Account not found' });
+    botLog(`🗑️ Removed Reddit account ID: ${id}`);
+    res.json({ ok: true, accounts: platformReddit.getAccountsList() });
   } catch (err) {
     res.status(500).json({ ok: false, error: err.message });
   }

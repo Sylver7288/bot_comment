@@ -270,7 +270,7 @@ function switchTab(tab) {
   document.getElementById('pageTitle').textContent = titles[tab] || tab;
 
   // Load data for tab
-  if (tab === 'accounts')     { loadAccounts(); loadTikTokAccounts(); loadFacebookAccounts(); }
+  if (tab === 'accounts')     { loadAccounts(); loadTikTokAccounts(); loadFacebookAccounts(); loadInstagramAccounts(); loadTwitterAccounts(); loadRedditAccounts(); }
   if (tab === 'settings')     loadSettings();
   if (tab === 'dashboard')    loadStats();
   if (tab === 'telegram-seo') loadTelegramGroups();
@@ -636,6 +636,9 @@ function videoCard(v, rank, country, platform = 'youtube') {
 function setupAccountsTab() {
   loadTikTokAccounts();
   loadFacebookAccounts();
+  loadInstagramAccounts();
+  loadTwitterAccounts();
+  loadRedditAccounts();
   document.getElementById('reloadAccountsBtn').addEventListener('click', async () => {
     const btn = document.getElementById('reloadAccountsBtn');
     btn.disabled = true;
@@ -2341,6 +2344,326 @@ function handleFacebookCookieFileUpload(event) {
   reader.readAsText(file);
 }
 
+// ─── Instagram Multi-Account Management ─────────────────────
+async function loadInstagramAccounts() {
+  const tbody = document.getElementById('instagramAccountsBody');
+  const badge = document.getElementById('instagramAccountCountBadge');
+  if (!tbody) return;
+
+  try {
+    const res = await api('/api/instagram/accounts');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.accounts)) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Failed to load Instagram accounts.</td></tr>';
+      return;
+    }
+
+    const accounts = data.accounts;
+    const activeCount = accounts.filter(a => a.valid).length;
+    if (badge) {
+      badge.textContent = `${activeCount} active`;
+      badge.className = activeCount > 0 ? 'badge badge-green' : 'badge badge-yellow';
+    }
+
+    if (accounts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No Instagram accounts added yet. Click "+ Add Instagram Account" to add via cookies or login.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = accounts.map(a => `
+      <tr data-account-id="${a.id}">
+        <td><strong>${escHtml(a.name)}</strong></td>
+        <td><code>${a.username ? '@' + escHtml(a.username) : 'N/A'}</code></td>
+        <td>${a.cookieCount > 0 ? `<span class="badge badge-purple">${a.cookieCount} Cookies</span>` : (a.hasCredentials ? '<span class="badge badge-cyan">User/Pass</span>' : '<span class="badge badge-yellow">None</span>')}</td>
+        <td><strong>${a.postsCount || 0}</strong></td>
+        <td>${a.lastUsed ? timeAgo(a.lastUsed) : '<span class="text-muted">Never</span>'}</td>
+        <td>${a.valid ? '<span class="badge badge-green">● Active</span>' : '<span class="badge badge-red">● Expired</span>'}</td>
+        <td>
+          ${a.id !== 'env_default' ? `<button class="btn btn-danger btn-sm" onclick="deleteInstagramAccount('${a.id}')">🗑️ Remove</button>` : '<span class="badge badge-cyan">.env Default</span>'}
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">Error loading Instagram accounts: ${err.message}</td></tr>`;
+  }
+}
+
+async function submitNewInstagramAccount() {
+  const nameInput = document.getElementById('newInstagramAccountName');
+  const cookiesInput = document.getElementById('newInstagramAccountCookies');
+  const userInput = document.getElementById('newInstagramUsername');
+  const passInput = document.getElementById('newInstagramPassword');
+  const msgEl = document.getElementById('newInstagramAccountMsg');
+  const btn = document.getElementById('btnSaveInstagramAccount');
+
+  const name = nameInput ? nameInput.value.trim() : '';
+  const cookiesRaw = cookiesInput ? cookiesInput.value.trim() : '';
+  const username = userInput ? userInput.value.trim() : '';
+  const password = passInput ? passInput.value.trim() : '';
+
+  if (!cookiesRaw && (!username || !password)) {
+    if (msgEl) msgEl.innerHTML = '<span style="color:#f87171;">⚠️ Please paste cookie JSON or enter username & password</span>';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
+  if (msgEl) msgEl.innerHTML = '';
+
+  try {
+    let parsedCookies = null;
+    if (cookiesRaw) {
+      try {
+        parsedCookies = JSON.parse(cookiesRaw);
+      } catch (e) {
+        throw new Error('Invalid JSON format for cookies');
+      }
+    }
+
+    const res = await api('/api/instagram/accounts', 'POST', {
+      name: name || (username ? `@${username}` : 'Instagram Account'),
+      cookies: parsedCookies,
+      username,
+      password,
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Failed to save account');
+
+    toast(`✅ Instagram account "${name || 'Account'}" added!`, 'success');
+    closeModal('addInstagramAccountModal');
+    if (nameInput) nameInput.value = '';
+    if (cookiesInput) cookiesInput.value = '';
+    if (userInput) userInput.value = '';
+    if (passInput) passInput.value = '';
+    loadInstagramAccounts();
+  } catch (err) {
+    if (msgEl) msgEl.innerHTML = `<span style="color:#f87171;">❌ ${err.message}</span>`;
+    toast(err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📥 Save Account'; }
+  }
+}
+
+function handleNewInstagramAccountFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const msgEl = document.getElementById('newInstagramAccountFileMsg');
+  if (msgEl) msgEl.textContent = file.name;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const text = e.target.result;
+    const input = document.getElementById('newInstagramAccountCookies');
+    if (input) input.value = text;
+  };
+  reader.readAsText(file);
+}
+
+async function deleteInstagramAccount(id) {
+  if (!confirm('Remove this Instagram account?')) return;
+  try {
+    const res = await api(`/api/instagram/accounts/${id}`, 'DELETE');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Failed to delete');
+    toast('Instagram account removed', 'info');
+    loadInstagramAccounts();
+  } catch (err) {
+    toast(`❌ ${err.message}`, 'error');
+  }
+}
+
+// ─── Twitter / X Multi-Account Management ───────────────────
+async function loadTwitterAccounts() {
+  const tbody = document.getElementById('twitterAccountsBody');
+  const badge = document.getElementById('twitterAccountCountBadge');
+  if (!tbody) return;
+
+  try {
+    const res = await api('/api/twitter/accounts');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.accounts)) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Failed to load Twitter / X accounts.</td></tr>';
+      return;
+    }
+
+    const accounts = data.accounts;
+    const activeCount = accounts.filter(a => a.valid).length;
+    if (badge) {
+      badge.textContent = `${activeCount} active`;
+      badge.className = activeCount > 0 ? 'badge badge-green' : 'badge badge-yellow';
+    }
+
+    if (accounts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No Twitter / X accounts added yet. Click "+ Add Twitter / X Account" to add API profiles.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = accounts.map(a => `
+      <tr data-account-id="${a.id}">
+        <td><strong>${escHtml(a.name)}</strong></td>
+        <td><code>${a.username ? (a.username.startsWith('@') ? escHtml(a.username) : '@' + escHtml(a.username)) : 'API App'}</code></td>
+        <td><code>${escHtml(a.apiKeyMasked || '••••')}</code></td>
+        <td><strong>${a.postsCount || 0}</strong></td>
+        <td>${a.lastUsed ? timeAgo(a.lastUsed) : '<span class="text-muted">Never</span>'}</td>
+        <td>${a.valid ? '<span class="badge badge-green">● Ready</span>' : '<span class="badge badge-red">● Inactive</span>'}</td>
+        <td>
+          ${a.id !== 'env_default' ? `<button class="btn btn-danger btn-sm" onclick="deleteTwitterAccount('${a.id}')">🗑️ Remove</button>` : '<span class="badge badge-cyan">.env Default</span>'}
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">Error loading Twitter / X accounts: ${err.message}</td></tr>`;
+  }
+}
+
+async function submitNewTwitterAccount() {
+  const name = document.getElementById('newTwitterAccountName')?.value.trim();
+  const username = document.getElementById('newTwitterAccountUsername')?.value.trim();
+  const apiKey = document.getElementById('newTwitterApiKey')?.value.trim();
+  const apiSecret = document.getElementById('newTwitterApiSecret')?.value.trim();
+  const accessToken = document.getElementById('newTwitterAccessToken')?.value.trim();
+  const accessSecret = document.getElementById('newTwitterAccessSecret')?.value.trim();
+  const msgEl = document.getElementById('newTwitterAccountMsg');
+  const btn = document.getElementById('btnSaveTwitterAccount');
+
+  if (!apiKey || !apiSecret || !accessToken || !accessSecret) {
+    if (msgEl) msgEl.innerHTML = '<span style="color:#f87171;">⚠️ API Key, API Secret, Access Token, and Access Token Secret are required</span>';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
+  if (msgEl) msgEl.innerHTML = '';
+
+  try {
+    const res = await api('/api/twitter/accounts', 'POST', {
+      name: name || username || 'X Account',
+      username,
+      apiKey,
+      apiSecret,
+      accessToken,
+      accessSecret,
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Failed to save account');
+
+    toast(`✅ Twitter / X account "${name || 'Account'}" added!`, 'success');
+    closeModal('addTwitterAccountModal');
+    loadTwitterAccounts();
+  } catch (err) {
+    if (msgEl) msgEl.innerHTML = `<span style="color:#f87171;">❌ ${err.message}</span>`;
+    toast(err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📥 Save Account'; }
+  }
+}
+
+async function deleteTwitterAccount(id) {
+  if (!confirm('Remove this Twitter / X account?')) return;
+  try {
+    const res = await api(`/api/twitter/accounts/${id}`, 'DELETE');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Failed to delete');
+    toast('Twitter / X account removed', 'info');
+    loadTwitterAccounts();
+  } catch (err) {
+    toast(`❌ ${err.message}`, 'error');
+  }
+}
+
+// ─── Reddit Multi-Account Management ────────────────────────
+async function loadRedditAccounts() {
+  const tbody = document.getElementById('redditAccountsBody');
+  const badge = document.getElementById('redditAccountCountBadge');
+  if (!tbody) return;
+
+  try {
+    const res = await api('/api/reddit/accounts');
+    const data = await res.json();
+    if (!data.ok || !Array.isArray(data.accounts)) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">Failed to load Reddit accounts.</td></tr>';
+      return;
+    }
+
+    const accounts = data.accounts;
+    const activeCount = accounts.filter(a => a.valid).length;
+    if (badge) {
+      badge.textContent = `${activeCount} active`;
+      badge.className = activeCount > 0 ? 'badge badge-green' : 'badge badge-yellow';
+    }
+
+    if (accounts.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="7" class="empty-cell">No Reddit accounts added yet. Click "+ Add Reddit Account" to add script app credentials.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = accounts.map(a => `
+      <tr data-account-id="${a.id}">
+        <td><strong>${escHtml(a.name)}</strong></td>
+        <td><code>${escHtml(a.username || 'N/A')}</code></td>
+        <td><code>${escHtml(a.clientIdMasked || '••••')}</code></td>
+        <td><strong>${a.postsCount || 0}</strong></td>
+        <td>${a.lastUsed ? timeAgo(a.lastUsed) : '<span class="text-muted">Never</span>'}</td>
+        <td>${a.valid ? '<span class="badge badge-green">● Connected</span>' : '<span class="badge badge-red">● Inactive</span>'}</td>
+        <td>
+          ${a.id !== 'env_default' ? `<button class="btn btn-danger btn-sm" onclick="deleteRedditAccount('${a.id}')">🗑️ Remove</button>` : '<span class="badge badge-cyan">.env Default</span>'}
+        </td>
+      </tr>
+    `).join('');
+  } catch (err) {
+    tbody.innerHTML = `<tr><td colspan="7" class="empty-cell">Error loading Reddit accounts: ${err.message}</td></tr>`;
+  }
+}
+
+async function submitNewRedditAccount() {
+  const name = document.getElementById('newRedditAccountName')?.value.trim();
+  const username = document.getElementById('newRedditUsername')?.value.trim();
+  const password = document.getElementById('newRedditPassword')?.value.trim();
+  const clientId = document.getElementById('newRedditClientId')?.value.trim();
+  const clientSecret = document.getElementById('newRedditClientSecret')?.value.trim();
+  const msgEl = document.getElementById('newRedditAccountMsg');
+  const btn = document.getElementById('btnSaveRedditAccount');
+
+  if (!username || !password || !clientId || !clientSecret) {
+    if (msgEl) msgEl.innerHTML = '<span style="color:#f87171;">⚠️ Username, Password, Client ID, and Client Secret are required</span>';
+    return;
+  }
+
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
+  if (msgEl) msgEl.innerHTML = '';
+
+  try {
+    const res = await api('/api/reddit/accounts', 'POST', {
+      name: name || `u/${username}`,
+      username,
+      password,
+      clientId,
+      clientSecret,
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Failed to save account');
+
+    toast(`✅ Reddit account "${name || username}" added!`, 'success');
+    closeModal('addRedditAccountModal');
+    loadRedditAccounts();
+  } catch (err) {
+    if (msgEl) msgEl.innerHTML = `<span style="color:#f87171;">❌ ${err.message}</span>`;
+    toast(err.message, 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '📥 Save Account'; }
+  }
+}
+
+async function deleteRedditAccount(id) {
+  if (!confirm('Remove this Reddit account?')) return;
+  try {
+    const res = await api(`/api/reddit/accounts/${id}`, 'DELETE');
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Failed to delete');
+    toast('Reddit account removed', 'info');
+    loadRedditAccounts();
+  } catch (err) {
+    toast(`❌ ${err.message}`, 'error');
+  }
+}
+
 // Global window assignments for Facebook and TikTok management
 window.escapeHtml = escapeHtml;
 window.timeAgo = timeAgo;
@@ -2356,5 +2679,15 @@ window.handleNewFacebookAccountFileUpload = handleNewFacebookAccountFileUpload;
 window.deleteFacebookAccount = deleteFacebookAccount;
 window.saveFacebookCookies = saveFacebookCookies;
 window.handleFacebookCookieFileUpload = handleFacebookCookieFileUpload;
+window.loadInstagramAccounts = loadInstagramAccounts;
+window.submitNewInstagramAccount = submitNewInstagramAccount;
+window.handleNewInstagramAccountFileUpload = handleNewInstagramAccountFileUpload;
+window.deleteInstagramAccount = deleteInstagramAccount;
+window.loadTwitterAccounts = loadTwitterAccounts;
+window.submitNewTwitterAccount = submitNewTwitterAccount;
+window.deleteTwitterAccount = deleteTwitterAccount;
+window.loadRedditAccounts = loadRedditAccounts;
+window.submitNewRedditAccount = submitNewRedditAccount;
+window.deleteRedditAccount = deleteRedditAccount;
 window.sendAllTrendingToPostComment = sendAllTrendingToPostComment;
 window.importTrendingToPostForm = importTrendingToPostForm;
