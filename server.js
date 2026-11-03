@@ -1306,6 +1306,7 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
             try {
               botLog(`🔄 Generating ${language} comment for ${platform.icon} ${platform.name}...`);
               const comment = await generateReply(input, sourceType, language);
+              botLog(`💬 Comment text: "${comment}"`);
               botLog(`📤 Posting to ${platform.icon} ${platform.name}...`);
               await platform.postComment(currentUrl, comment);
               stats.platformStats[platformId] = (stats.platformStats[platformId] || 0) + 1;
