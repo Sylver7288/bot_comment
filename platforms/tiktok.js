@@ -139,6 +139,9 @@ function getAccountsDir() {
 
 function initAccounts() {
   const dir = getAccountsDir();
+  const marker = path.join(dir, '.migrated');
+  if (fs.existsSync(marker)) return; // Already migrated once, do not recreate deleted accounts!
+
   const files = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
   if (files.length === 0) {
     const legacyFile = getCookieFile();
@@ -165,6 +168,7 @@ function initAccounts() {
       }
     }
   }
+  try { fs.writeFileSync(marker, new Date().toISOString(), 'utf8'); } catch {}
 }
 
 // Auto-initialize on module load
@@ -251,18 +255,30 @@ function saveAccount(name, cookiesData) {
 function deleteAccount(id) {
   const dir = getAccountsDir();
   const file = path.join(dir, `${id}.json`);
+  let deleted = false;
   if (fs.existsSync(file)) {
     fs.unlinkSync(file);
-    return true;
+    deleted = true;
   }
-  if (id === 'legacy' || id === 'tiktok_cookies' || id === 'default') {
+  // Ensure legacy cookie file is also deleted so it does not resurrect
+  if (id === 'acc_default' || id === 'legacy' || id === 'tiktok_cookies' || id === 'default') {
     const legacyFile = getCookieFile();
     if (fs.existsSync(legacyFile)) {
-      fs.unlinkSync(legacyFile);
-      return true;
+      try { fs.unlinkSync(legacyFile); } catch {}
+      deleted = true;
     }
   }
-  return false;
+  // If no accounts remain in dir, clear legacy file as well
+  try {
+    const remaining = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+    if (remaining.length === 0) {
+      const legacyFile = getCookieFile();
+      if (fs.existsSync(legacyFile)) {
+        try { fs.unlinkSync(legacyFile); } catch {}
+      }
+    }
+  } catch {}
+  return deleted;
 }
 
 let currentAccountIndex = 0;
