@@ -895,6 +895,121 @@ body, .sidebar, .header, .card, .custom-input, .custom-select,
 .glow-green  { background: var(--green); }
 .glow-yellow { background: var(--yellow); }
 
+/* ─── Platform Analytics Breakdown Card ─────────────────── */
+.platform-bar-container {
+  width: 100%;
+  height: 8px;
+  background: var(--surface-raised);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+}
+
+.platform-dist-bar {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.platform-dist-seg {
+  height: 100%;
+  transition: width 0.4s ease;
+}
+
+.platform-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.platform-stat-chip {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: all var(--transition);
+}
+
+.platform-stat-chip:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+[data-theme="light"] .platform-stat-chip {
+  background: #ffffff;
+  border-color: #e2e8f0;
+}
+
+.platform-chip-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.platform-chip-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.platform-chip-pct {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+}
+
+.platform-chip-count {
+  font-size: 20px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+  line-height: 1;
+}
+
+.platform-chip-bar {
+  width: 100%;
+  height: 3px;
+  background: var(--border-subtle);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.platform-chip-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.activity-platform-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+[data-theme="light"] .activity-platform-badge {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
 /* ─── Dashboard Activity & Mini Terminal ─────────────────── */
 .dashboard-grid {
   display: grid;

@@ -340,6 +340,16 @@ function updateLanguageHint() {
 }
 
 // ─── Dashboard ───────────────────────────────────────────────
+const PLATFORM_CHANNELS = [
+  { id: 'youtube',   name: 'YouTube',   icon: '🎥', color: '#ff0000' },
+  { id: 'tiktok',    name: 'TikTok',    icon: '🎵', color: '#fe2c55' },
+  { id: 'facebook',  name: 'Facebook',  icon: '📘', color: '#1877f2' },
+  { id: 'instagram', name: 'Instagram', icon: '📸', color: '#e1306c' },
+  { id: 'twitter',   name: 'Twitter/X', icon: '🐦', color: '#1d9bf0' },
+  { id: 'reddit',    name: 'Reddit',    icon: '🟠', color: '#ff4500' },
+  { id: 'telegram',  name: 'Telegram',  icon: '✈️', color: '#229ed9' },
+];
+
 async function loadStats() {
   try {
     const res  = await api('/api/status');
@@ -354,11 +364,53 @@ async function loadStats() {
     const badge = document.getElementById('postAccountCount');
     if (badge) badge.textContent = `${data.accountsLoaded} account${data.accountsLoaded !== 1 ? 's' : ''}`;
 
+    // Platform Distribution & Analytics
+    renderPlatformAnalytics(data.platformStats || {});
+
     // Recent activity
     renderActivity(data.commentHistory || []);
   } catch (err) {
     console.warn('Stats load failed:', err);
   }
+}
+
+function renderPlatformAnalytics(stats) {
+  const barEl = document.getElementById('platformDistBar');
+  const gridEl = document.getElementById('platformStatsGrid');
+  const badgeEl = document.getElementById('platformAnalyticsTotalBadge');
+  if (!barEl || !gridEl) return;
+
+  const total = PLATFORM_CHANNELS.reduce((acc, p) => acc + (Number(stats[p.id]) || 0), 0);
+  if (badgeEl) badgeEl.textContent = `${total} total ${total === 1 ? 'post' : 'posts'}`;
+
+  // Render multi-segment bar
+  if (total === 0) {
+    barEl.innerHTML = '<div style="width:100%;height:100%;background:var(--border-subtle);" title="No posts dispatched yet"></div>';
+  } else {
+    barEl.innerHTML = PLATFORM_CHANNELS.map(p => {
+      const count = Number(stats[p.id]) || 0;
+      if (count === 0) return '';
+      const pct = ((count / total) * 100).toFixed(1);
+      return `<div class="platform-dist-seg" style="width:${pct}%;background:${p.color};" title="${p.name}: ${count} (${pct}%)"></div>`;
+    }).join('');
+  }
+
+  // Render platform stat chips
+  gridEl.innerHTML = PLATFORM_CHANNELS.map(p => {
+    const count = Number(stats[p.id]) || 0;
+    const pct = total > 0 ? ((count / total) * 100).toFixed(0) : '0';
+    return `
+      <div class="platform-stat-chip">
+        <div class="platform-chip-top">
+          <span class="platform-chip-name">${p.icon} ${p.name}</span>
+          <span class="platform-chip-pct">${pct}%</span>
+        </div>
+        <div class="platform-chip-count">${count}</div>
+        <div class="platform-chip-bar">
+          <div class="platform-chip-fill" style="width:${pct}%;background:${p.color};"></div>
+        </div>
+      </div>`;
+  }).join('');
 }
 
 function renderActivity(history) {
@@ -373,10 +425,11 @@ function renderActivity(history) {
     const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const targetLabel = h.label || (h.videoId ? `yt/${h.videoId}` : (h.platform || 'Comment Blast'));
     const icon = h.icon || (h.videoId ? '🎥' : '💬');
+    const platform = h.platform || (h.videoId ? 'YouTube' : 'Post');
     return `
       <div class="activity-item">
-        <span style="display:flex;align-items:center;gap:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          <span>${icon}</span>
+        <span class="activity-platform-badge">${icon} ${escHtml(platform)}</span>
+        <span style="display:flex;align-items:center;gap:6px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
           <code>${escHtml(targetLabel)}</code>
         </span>
         <span class="badge badge-green">${h.success || 1} ok</span>

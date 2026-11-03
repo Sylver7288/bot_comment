@@ -780,6 +780,7 @@ app.get('/api/status', requireAuth, (req, res) => {
     commentHistory:  stats.commentHistory,
     proxyEnabled:    PROXYLAB_ENABLED,
     startTime:       stats.startTime,
+    platformStats:   stats.platformStats,
   });
 });
 

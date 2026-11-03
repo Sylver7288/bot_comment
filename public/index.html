@@ -230,6 +230,27 @@
             </div>
           </div>
 
+          <!-- ─── Platform Analytics Breakdown ─── -->
+          <div class="card mb-20" id="platformAnalyticsCard">
+            <div class="card-header">
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <h3 class="card-title">📊 Platform Distribution & Analytics</h3>
+                <span class="badge badge-cyan" id="platformAnalyticsTotalBadge">0 total posts</span>
+              </div>
+              <span class="text-muted" style="font-size:12px;">Real-time channel breakdown</span>
+            </div>
+            <div class="card-body">
+              <!-- Visual Multi-Color Distribution Bar -->
+              <div class="platform-bar-container">
+                <div class="platform-dist-bar" id="platformDistBar">
+                  <div style="width:100%;height:100%;background:var(--border-subtle);" title="No posts yet"></div>
+                </div>
+              </div>
+              <!-- Grid of Platform Stats -->
+              <div class="platform-stats-grid" id="platformStatsGrid"></div>
+            </div>
+          </div>
+
           <div class="dashboard-grid">
             <!-- Recent Activity -->
             <div class="card">
