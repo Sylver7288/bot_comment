@@ -448,7 +448,7 @@ function saveKeywords(kwList) {
 
 let keywords = loadKeywords();
 
-async function generateReply(input, sourceType, language = 'Indonesian', useKeyword = true) {
+async function generateReply(input, sourceType, language = 'Indonesian', useKeyword = true, platformName = 'YouTube') {
   try {
     const chosenKeyword = keywords[Math.floor(Math.random() * keywords.length)];
     if (!openai) {
@@ -463,12 +463,12 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
     let prompt;
     if (useKeyword) {
       prompt = sourceType === 'comments'
-        ? `Respond casually and naturally to this YouTube comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the keyword #${chosenKeyword} at the end. Comment: "${input}"`
-        : `Write a short, natural-sounding one-sentence YouTube comment about this video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like a real viewer reaction. Subtly mention the keyword #${chosenKeyword} at the end. Video info: "${input}"`;
+        ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the keyword #${chosenKeyword} at the end. Comment: "${input}"`
+        : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the keyword #${chosenKeyword} at the end. Post info: "${input}"`;
     } else {
       prompt = sourceType === 'comments'
-        ? `Respond casually and naturally to this YouTube comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Do NOT mention any brand, keyword, or hashtag. Comment: "${input}"`
-        : `Write a short, natural-sounding one-sentence YouTube comment about this video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like a real viewer reaction. No brand names or hashtags at all. Video info: "${input}"`;
+        ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Do NOT mention any brand, keyword, or hashtag. Comment: "${input}"`
+        : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. No brand names or hashtags at all. Post info: "${input}"`;
     }
 
     const response = await openai.chat.completions.create({
@@ -622,7 +622,7 @@ async function postComments(videoId, language = 'Indonesian') {
   }
 
   const result = { success, failed, skipped };
-  stats.commentHistory.unshift({ videoId, language, time: Date.now(), success: success.length, failed: failed.length, skipped: skipped.length });
+  stats.commentHistory.unshift({ platform: 'YouTube', icon: '🎥', videoId, label: `yt/${videoId}`, language, time: Date.now(), success: success.length, failed: failed.length, skipped: skipped.length });
   if (stats.commentHistory.length > 50) stats.commentHistory.pop();
   botOk(`🏁 Done! ✅ ${success.length} posted, ❌ ${failed.length} failed, ⏸️ ${skipped.length} skipped.`);
   return result;
@@ -1068,7 +1068,7 @@ app.post('/api/telegram/post', requireAuth, async (req, res) => {
       let textToSend = comment;
       if (!textToSend) {
         const promptContext = `Telegram community discussion about: ${t}`;
-        textToSend = await generateReply(promptContext, 'metadata', language);
+        textToSend = await generateReply(promptContext, 'metadata', language, true, 'Telegram');
         if (backlink) {
           textToSend += `\n\n🔗 ${backlink}`;
         }
@@ -1076,6 +1076,20 @@ app.post('/api/telegram/post', requireAuth, async (req, res) => {
       await platformTelegram.postComment(t, textToSend);
       success.push(t);
       stats.platformStats.telegram = (stats.platformStats.telegram || 0) + 1;
+      stats.commentsPosted++;
+      stats.lastCommentTime = Date.now();
+      stats.commentHistory.unshift({
+        platform: 'Telegram',
+        icon: '✈️',
+        label: t,
+        language,
+        comment: textToSend,
+        time: Date.now(),
+        success: 1,
+        failed: 0,
+      });
+      if (stats.commentHistory.length > 50) stats.commentHistory.pop();
+      sendTelegram(`✅ Posted comment to <b>✈️ Telegram</b>\n👥 Target: <code>${t}</code>\n💬 "${textToSend.substring(0, 100)}..."`);
       botOk(`✅ Posted comment to Telegram: ${t}`);
       await delay(1500);
     } catch (err) {
@@ -1317,11 +1331,25 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
             }
             try {
               botLog(`🔄 Generating ${language} comment for ${platform.icon} ${platform.name}...`);
-              const comment = await generateReply(input, sourceType, language);
+              const comment = await generateReply(input, sourceType, language, true, platform.name);
               botLog(`💬 Comment text: "${comment}"`);
               botLog(`📤 Posting to ${platform.icon} ${platform.name}...`);
               await platform.postComment(currentUrl, comment);
               stats.platformStats[platformId] = (stats.platformStats[platformId] || 0) + 1;
+              stats.commentsPosted++;
+              stats.lastCommentTime = Date.now();
+              stats.commentHistory.unshift({
+                platform: platform.name,
+                icon: platform.icon,
+                label: currentUrl.replace(/^https?:\/\/(www\.)?/, '').slice(0, 26) + '...',
+                language,
+                comment,
+                time: Date.now(),
+                success: 1,
+                failed: 0,
+              });
+              if (stats.commentHistory.length > 50) stats.commentHistory.pop();
+              sendTelegram(`✅ Posted comment to <b>${platform.icon} ${platform.name}</b>\n🔗 <code>${currentUrl}</code>\n💬 "${comment.substring(0, 100)}..."`);
               botOk(`✅ ${platform.icon} ${platform.name} posted: "${comment}"`);
               io.emit('platformDone', { platform: platformId, success: [platformId], comment, failed: [] });
             } catch (err) {

@@ -370,13 +370,18 @@ function renderActivity(history) {
   }
   el.innerHTML = history.slice(0, 8).map(h => {
     const d = new Date(h.time);
-    const timeStr = d.toLocaleTimeString();
+    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const targetLabel = h.label || (h.videoId ? `yt/${h.videoId}` : (h.platform || 'Comment Blast'));
+    const icon = h.icon || (h.videoId ? '🎥' : '💬');
     return `
       <div class="activity-item">
-        <span>📺 <code>${h.videoId}</code></span>
-        <span class="badge badge-green">${h.success} ok</span>
+        <span style="display:flex;align-items:center;gap:6px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          <span>${icon}</span>
+          <code>${escHtml(targetLabel)}</code>
+        </span>
+        <span class="badge badge-green">${h.success || 1} ok</span>
         ${h.failed > 0 ? `<span class="badge badge-red">${h.failed} fail</span>` : ''}
-        <span class="badge badge-cyan">${h.language || '?'}</span>
+        <span class="badge badge-cyan">${h.language || 'ID'}</span>
         <span class="activity-meta">${timeStr}</span>
       </div>`;
   }).join('');
