@@ -523,24 +523,133 @@ async function testConnection() {
   return { ok: false, message: 'No valid Facebook session cookies. Please paste cookies in Settings or Accounts.' };
 }
 
-const COUNTRY_TOPICS = {
-  IN: ['Bollywood', 'Cricket', 'Desi Memes', 'Indian Viral Video', 'Daily News India'],
-  ID: ['Viral Indonesia', 'Berita Viral', 'Video Lucu', 'Trending Indonesia'],
-  US: ['Viral News', 'Top Videos', 'Trending Reels', 'Daily Humor'],
-  GB: ['UK News', 'Trending UK', 'Viral Reels'],
-  DEFAULT: ['Trending Viral', 'Top Video', 'World News'],
+const FALLBACK_TRENDING = {
+  IN: [
+    { title: 'Bollywood Viral Dance & Music Trends', query: 'bollywood dance viral reels', thumb: 'https://images.unsplash.com/photo-1547153760-18fc86324498?w=600&auto=format&fit=crop&q=80', channel: 'Bollywood Hungama' },
+    { title: 'Indian Cricket & IPL Top Match Moments', query: 'cricket highlights viral video', thumb: 'https://images.unsplash.com/photo-1531415074868-836332ff4296?w=600&auto=format&fit=crop&q=80', channel: 'CricTracker' },
+    { title: 'Desi Memes & Stand-Up Comedy Viral Clips', query: 'desi comedy memes viral', thumb: 'https://images.unsplash.com/photo-1514306191717-452ec28c7814?w=600&auto=format&fit=crop&q=80', channel: 'Desi Humor' },
+    { title: 'Indian Street Food & Culinary Viral Shorts', query: 'indian street food viral reels', thumb: 'https://images.unsplash.com/photo-1601050690597-df0568f70950?w=600&auto=format&fit=crop&q=80', channel: 'Foodie Express India' },
+    { title: 'Top Hindi Movie Scenes & Dialogues', query: 'hindi movie scene viral', thumb: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=600&auto=format&fit=crop&q=80', channel: 'Filmi Buzz' },
+    { title: 'Punjabi Beats & Bhangra Viral Trends', query: 'punjabi song viral reel', thumb: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80', channel: 'Desi Tunes' },
+    { title: 'Daily Breaking News India Viral Coverage', query: 'daily news india viral video', thumb: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80', channel: 'India Today News' },
+    { title: 'Desi Jugaad & Innovation Viral Videos', query: 'desi jugaad viral video', thumb: 'https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=600&auto=format&fit=crop&q=80', channel: 'Tech Jugaad India' },
+    { title: 'Indian Wedding Dance & Celebration Viral Clips', query: 'indian wedding dance reel', thumb: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?w=600&auto=format&fit=crop&q=80', channel: 'Wedding Bells India' },
+    { title: 'Motivational Hindi Speeches & Life Lessons', query: 'hindi motivation viral video', thumb: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=600&auto=format&fit=crop&q=80', channel: 'Inspire India' },
+    { title: 'Indian Bike Stunts & Auto Viral Clips', query: 'india viral bike stunt reels', thumb: 'https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=600&auto=format&fit=crop&q=80', channel: 'Speed India' },
+    { title: 'South Indian Blockbusters Hindi Dubbed Scenes', query: 'south movie hindi dubbed viral', thumb: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=600&auto=format&fit=crop&q=80', channel: 'South Cinema Hindi' },
+    { title: 'Viral College Campus & Student Funny Moments', query: 'college funny moments india reel', thumb: 'https://images.unsplash.com/photo-1523240795612-9a054b0db644?w=600&auto=format&fit=crop&q=80', channel: 'Campus Masti' },
+    { title: 'Indian Village Life & Rural Culture Stories', query: 'village life india viral video', thumb: 'https://images.unsplash.com/photo-1509099836639-18ba1795216d?w=600&auto=format&fit=crop&q=80', channel: 'Desi Gaon' },
+    { title: 'Top Spiritual & Bhakti Viral Bhajans', query: 'bhajan bhakti viral video', thumb: 'https://images.unsplash.com/photo-1545063914-a1a6ec821c88?w=600&auto=format&fit=crop&q=80', channel: 'Bhakti Sagar' },
+    { title: 'Indian Talent Show & Reality TV Viral Highlights', query: 'indian talent show viral clip', thumb: 'https://images.unsplash.com/photo-1469488865564-c2de10f69f96?w=600&auto=format&fit=crop&q=80', channel: 'Talent Hunt India' },
+    { title: 'Hindi Rap & Hip-Hop Underground Trends', query: 'desi hip hop viral reel', thumb: 'https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=600&auto=format&fit=crop&q=80', channel: 'Gully Beats' },
+    { title: 'Fitness, Yoga & Gym Motivation India', query: 'desi fitness gym viral reels', thumb: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?w=600&auto=format&fit=crop&q=80', channel: 'Fit India' },
+    { title: 'Family Drama & Daily Soap Opera Viral Clips', query: 'daily soap viral drama clip', thumb: 'https://images.unsplash.com/photo-1522869635100-9f4c5e86aa37?w=600&auto=format&fit=crop&q=80', channel: 'Desi Drama' },
+    { title: 'Cute Indian Kids & Babies Viral Reels', query: 'cute baby funny video india', thumb: 'https://images.unsplash.com/photo-1516627145497-ae6968895b74?w=600&auto=format&fit=crop&q=80', channel: 'Baby Masti' },
+  ],
+  DEFAULT: [
+    { title: 'Top Viral Reels Today', query: 'viral reels trending', thumb: 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=80', channel: 'Facebook Viral' },
+    { title: 'Trending Comedy & Humor Clips', query: 'funny comedy video', thumb: 'https://images.unsplash.com/photo-1514306191717-452ec28c7814?w=600&auto=format&fit=crop&q=80', channel: 'Comedy Central' },
+    { title: 'World Breaking News & Top Stories', query: 'breaking news today', thumb: 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&auto=format&fit=crop&q=80', channel: 'Global News' },
+    { title: 'Viral Music Videos & Hits', query: 'music video viral', thumb: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=600&auto=format&fit=crop&q=80', channel: 'Music Trends' },
+  ]
 };
 
 async function getTrending(regionCode = 'US', maxResults = 20) {
   const code = (regionCode || 'US').toUpperCase();
-  const topics = COUNTRY_TOPICS[code] || COUNTRY_TOPICS.DEFAULT;
-  return topics.slice(0, maxResults).map((topic, i) => ({
+  const max = Math.min(Number(maxResults) || 20, 50);
+
+  // 1. Try Live Puppeteer Scraping if available
+  if (isPuppeteerAvailable()) {
+    let browser = null;
+    let page = null;
+    try {
+      browser = await getBrowser();
+      page = await newPageWithProxy(browser);
+      await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+
+      await ensureLogin(page).catch(() => {});
+
+      let targetUrl = code === 'IN'
+        ? 'https://www.facebook.com/search/videos/?q=hindi%20viral%20reels'
+        : 'https://www.facebook.com/watch/';
+
+      console.log(`🌐 Scraping Facebook trending videos from: ${targetUrl}`);
+      await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => {});
+      await delay(3000);
+      await dismissOverlays(page);
+
+      // Scroll to trigger lazy loading
+      for (let s = 0; s < 3; s++) {
+        await page.evaluate(() => window.scrollBy(0, 1000));
+        await delay(1000);
+      }
+
+      const scraped = await page.evaluate((limit) => {
+        const results = [];
+        const seen = new Set();
+        const links = Array.from(document.querySelectorAll('a[href*="/watch/?v="], a[href*="/watch?v="], a[href*="/reel/"], a[href*="/videos/"]'));
+
+        for (const a of links) {
+          if (results.length >= limit) break;
+          let href = a.href || '';
+          if (!href || seen.has(href)) continue;
+
+          if (href.includes('facebook.com')) {
+            const [base, query] = href.split('?');
+            if (base.includes('/watch')) {
+              const vParam = new URLSearchParams(query || '').get('v');
+              href = vParam ? `https://www.facebook.com/watch/?v=${vParam}` : base;
+            } else {
+              href = base;
+            }
+          }
+
+          if (seen.has(href)) continue;
+          seen.add(href);
+
+          const card = a.closest('div[role="article"]') || a.closest('div[role="feed"] > div') || a.parentElement;
+          const img = (card ? card.querySelector('img[src*="fbcdn"], img[src*="scontent"], img') : a.querySelector('img'));
+          const thumb = img ? img.src : '';
+
+          const textEl = card ? card.querySelector('div[dir="auto"], h2, [class*="text"], span') : a;
+          const title = (textEl ? textEl.innerText : a.innerText || '').trim().replace(/\n+/g, ' ');
+
+          const authorEl = card ? card.querySelector('strong, h3, a[role="link"] span') : null;
+          const channel = (authorEl ? authorEl.innerText : 'Facebook Creator').trim();
+
+          results.push({
+            id: 'fb_' + Date.now() + '_' + results.length,
+            title: title ? title.slice(0, 100) : `Trending Facebook Video #${results.length + 1}`,
+            url: href,
+            thumbnail: thumb || 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=80',
+            channel: channel || 'Facebook Watch',
+            views: '🔥 Viral',
+          });
+        }
+        return results;
+      }, max);
+
+      if (scraped && scraped.length >= 5) {
+        console.log(`✅ Scraped ${scraped.length} live Facebook trending videos!`);
+        return scraped;
+      }
+    } catch (scrapeErr) {
+      console.warn(`⚠️ Puppeteer Facebook scrape fallback: ${scrapeErr.message}`);
+    } finally {
+      if (page) await page.close().catch(() => {});
+    }
+  }
+
+  // 2. High Quality HD Previews Fallback
+  const list = FALLBACK_TRENDING[code] || FALLBACK_TRENDING.DEFAULT;
+  return list.slice(0, max).map((item, i) => ({
     id: `fb_${code}_${i}`,
-    title: `${topic} — Popular on Facebook`,
-    url: `https://www.facebook.com/watch/search/?q=${encodeURIComponent(topic)}`,
-    thumbnail: 'https://static.xx.fbcdn.net/rsrc.php/v3/y2/r/13w1lD_j0sM.png',
-    channel: `Facebook Watch • ${code}`,
-    views: '🔥 Popular Content',
+    title: item.title,
+    url: `https://www.facebook.com/search/videos/?q=${encodeURIComponent(item.query)}`,
+    thumbnail: item.thumb,
+    channel: `${item.channel} • Facebook IN`,
+    views: '🔥 Popular in India',
   }));
 }
 
