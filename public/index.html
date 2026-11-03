@@ -780,9 +780,36 @@
           <div class="auth-success-icon">🔗</div>
           <p class="modal-desc">Click the button below to open Google login in a new tab. Sign in and grant permission, then come back here — the account will appear automatically.</p>
           <a id="authLinkAnchor" href="#" target="_blank" rel="noopener" class="btn btn-primary btn-full auth-link-btn">🚀 Open Google Login</a>
+          
           <div class="auth-waiting" id="authWaiting">
             <span class="spinner-sm"></span>
             <span>Waiting for login to complete...</span>
+          </div>
+
+          <!-- 💡 Step-by-Step Tutorial & Troubleshooting -->
+          <div style="background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 8px; padding: 12px; margin-top: 14px; text-align: left; font-size: 12px; color: var(--text-secondary);">
+            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              💡 <span>Google Login Instructions & Quick Fixes</span>
+            </div>
+            <ol style="padding-left: 18px; margin: 0 0 8px 0; line-height: 1.5;">
+              <li>Click <strong>🚀 Open Google Login</strong> above and choose your Google/YouTube account.</li>
+              <li>Click <strong>Allow / Continue</strong> to grant YouTube comment permissions.</li>
+            </ol>
+            <div style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding: 8px 10px; border-radius: 4px; margin-top: 8px;">
+              <strong style="color: #f87171;">⚠️ Seeing "Access blocked (Error 403)"?</strong>
+              <div style="margin-top: 4px; line-height: 1.4; color: var(--text-primary);">
+                Your Google Cloud app is currently in <em>Testing mode</em>:
+                <br>1. Open <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener" style="color: var(--purple); font-weight: 600; text-decoration: underline;">Google Cloud ➔ OAuth consent screen</a>
+                <br>2. Under <strong>Test users</strong>, click <strong>+ ADD USERS</strong>
+                <br>3. Enter your email (e.g. <code>pachorene02@gmail.com</code>) and click <strong>Save</strong>!
+              </div>
+            </div>
+            <div style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; padding: 8px 10px; border-radius: 4px; margin-top: 8px;">
+              <strong style="color: #fbbf24;">🛡️ Seeing "Google hasn't verified this app"?</strong>
+              <div style="margin-top: 4px; line-height: 1.4; color: var(--text-primary);">
+                Click <strong>Advanced</strong> (bottom left) ➔ <strong>Go to youtubecommentbot (unsafe)</strong> ➔ Click <strong>Continue</strong>.
+              </div>
+            </div>
           </div>
         </div>
 
