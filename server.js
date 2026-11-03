@@ -1310,8 +1310,8 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
               botLog(`📤 Posting to ${platform.icon} ${platform.name}...`);
               await platform.postComment(currentUrl, comment);
               stats.platformStats[platformId] = (stats.platformStats[platformId] || 0) + 1;
-              botOk(`✅ ${platform.icon} ${platform.name}: comment posted!`);
-              io.emit('platformDone', { platform: platformId, success: [platformId], failed: [] });
+              botOk(`✅ ${platform.icon} ${platform.name} posted: "${comment}"`);
+              io.emit('platformDone', { platform: platformId, success: [platformId], comment, failed: [] });
             } catch (err) {
               botError(`❌ ${platform.icon} ${platform.name} failed: ${err.message}`);
               io.emit('platformDone', { platform: platformId, success: [], failed: [err.message] });
