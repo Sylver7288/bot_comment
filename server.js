@@ -257,9 +257,9 @@ function loadUsers() {
       botWarn('⚠️ tokens/ directory not found. No accounts loaded.');
       return [];
     }
-    const tokenFiles = fs.readdirSync('tokens').filter(f => f.endsWith('.json') && !f.includes('tiktok_cookies'));
+    const tokenFiles = fs.readdirSync('tokens').filter(f => f.endsWith('.json') && !f.includes('tiktok') && !f.includes('facebook'));
     if (tokenFiles.length === 0) {
-      botWarn('⚠️ No token files found. Run get_token.js to add accounts.');
+      botWarn('⚠️ No YouTube token files found. Go to Accounts tab to add YouTube accounts.');
       return [];
     }
 
@@ -267,6 +267,9 @@ function loadUsers() {
       const username = file.replace('.json', '');
       try {
         const credentials = JSON.parse(fs.readFileSync(`tokens/${file}`));
+        if (!credentials || (!credentials.access_token && !credentials.refresh_token)) {
+          return null;
+        }
         const oauth2Client = new google.auth.OAuth2(CLIENT_ID, CLIENT_SECRET, REDIRECT_URI);
         oauth2Client.setCredentials(credentials);
 
