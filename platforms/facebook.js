@@ -571,57 +571,82 @@ async function getTrending(regionCode = 'US', maxResults = 20) {
       await ensureLogin(page).catch(() => {});
 
       let targetUrl = code === 'IN'
-        ? 'https://www.facebook.com/search/videos/?q=hindi%20viral%20reels'
-        : 'https://www.facebook.com/watch/';
+        ? 'https://www.facebook.com/watch'
+        : 'https://www.facebook.com/watch';
 
       console.log(`🌐 Scraping Facebook trending videos from: ${targetUrl}`);
       await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => {});
       await delay(3000);
       await dismissOverlays(page);
 
-      // Scroll to trigger lazy loading
-      for (let s = 0; s < 3; s++) {
-        await page.evaluate(() => window.scrollBy(0, 1000));
-        await delay(1000);
+      // Scroll 5 times to trigger lazy loading of distinct video cards
+      for (let s = 0; s < 5; s++) {
+        await page.evaluate(() => window.scrollBy(0, 1500));
+        await delay(1200);
       }
 
       const scraped = await page.evaluate((limit) => {
         const results = [];
-        const seen = new Set();
-        const links = Array.from(document.querySelectorAll('a[href*="/watch/?v="], a[href*="/watch?v="], a[href*="/reel/"], a[href*="/videos/"]'));
+        const seenIds = new Set();
+        const seenTitles = new Set();
+
+        function getFbId(url) {
+          if (!url) return null;
+          const v = url.match(/[?&]v=(\d+)/);
+          if (v) return v[1];
+          const r = url.match(/\/(?:reel|videos)\/(\d+)/);
+          if (r) return r[1];
+          const m = url.match(/\/(\d{8,20})/);
+          if (m) return m[1];
+          return null;
+        }
+
+        // Find all links to videos or reels
+        const links = Array.from(document.querySelectorAll('a[href*="/watch"], a[href*="/reel/"], a[href*="/videos/"]'));
 
         for (const a of links) {
           if (results.length >= limit) break;
-          let href = a.href || '';
-          if (!href || seen.has(href)) continue;
+          const rawHref = a.href || '';
+          if (!rawHref) continue;
 
-          if (href.includes('facebook.com')) {
-            const [base, query] = href.split('?');
-            if (base.includes('/watch')) {
-              const vParam = new URLSearchParams(query || '').get('v');
-              href = vParam ? `https://www.facebook.com/watch/?v=${vParam}` : base;
-            } else {
-              href = base;
-            }
-          }
+          const vidId = getFbId(rawHref);
+          if (vidId && seenIds.has(vidId)) continue;
 
-          if (seen.has(href)) continue;
-          seen.add(href);
-
+          // Find card container
           const card = a.closest('div[role="article"]') || a.closest('div[role="feed"] > div') || a.parentElement;
-          const img = (card ? card.querySelector('img[src*="fbcdn"], img[src*="scontent"], img') : a.querySelector('img'));
+          
+          // Title / Caption
+          const textEl = card ? card.querySelector('div[dir="auto"], h2, [class*="text"], span') : a;
+          const title = (textEl ? textEl.innerText : a.innerText || '').trim().replace(/\s+/g, ' ');
+          if (title && seenTitles.has(title.toLowerCase())) continue;
+
+          // Thumbnail image
+          const img = card ? card.querySelector('img[src*="fbcdn"], img[src*="scontent"], img') : a.querySelector('img');
           const thumb = img ? img.src : '';
 
-          const textEl = card ? card.querySelector('div[dir="auto"], h2, [class*="text"], span') : a;
-          const title = (textEl ? textEl.innerText : a.innerText || '').trim().replace(/\n+/g, ' ');
-
+          // Creator / Channel
           const authorEl = card ? card.querySelector('strong, h3, a[role="link"] span') : null;
           const channel = (authorEl ? authorEl.innerText : 'Facebook Creator').trim();
 
+          // Standardized URL
+          let cleanHref = rawHref;
+          if (vidId) {
+            cleanHref = rawHref.includes('/reel/') 
+              ? `https://www.facebook.com/reel/${vidId}`
+              : `https://www.facebook.com/watch/?v=${vidId}`;
+            seenIds.add(vidId);
+          } else {
+            cleanHref = rawHref.split('?')[0];
+            if (seenIds.has(cleanHref)) continue;
+            seenIds.add(cleanHref);
+          }
+
+          if (title) seenTitles.add(title.toLowerCase());
+
           results.push({
-            id: 'fb_' + Date.now() + '_' + results.length,
+            id: vidId ? `fb_${vidId}` : `fb_${Date.now()}_${results.length}`,
             title: title ? title.slice(0, 100) : `Trending Facebook Video #${results.length + 1}`,
-            url: href,
+            url: cleanHref,
             thumbnail: thumb || 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=600&auto=format&fit=crop&q=80',
             channel: channel || 'Facebook Watch',
             views: '🔥 Viral',
@@ -630,9 +655,28 @@ async function getTrending(regionCode = 'US', maxResults = 20) {
         return results;
       }, max);
 
-      if (scraped && scraped.length >= 5) {
-        console.log(`✅ Scraped ${scraped.length} live Facebook trending videos!`);
-        return scraped;
+      if (scraped && scraped.length > 0) {
+        console.log(`✅ Scraped ${scraped.length} unique live Facebook trending videos!`);
+        if (scraped.length >= max) {
+          return scraped.slice(0, max);
+        }
+        // Fill remaining slots with distinct fallback items
+        const fallbacks = (FALLBACK_TRENDING[code] || FALLBACK_TRENDING.DEFAULT).map((item, i) => ({
+          id: `fb_fallback_${code}_${i}`,
+          title: item.title,
+          url: `https://www.facebook.com/search/videos/?q=${encodeURIComponent(item.query)}`,
+          thumbnail: item.thumb,
+          channel: `${item.channel} • Facebook IN`,
+          views: '🔥 Popular in India',
+        }));
+        const combined = [...scraped];
+        for (const fb of fallbacks) {
+          if (combined.length >= max) break;
+          if (!combined.some(c => c.title === fb.title)) {
+            combined.push(fb);
+          }
+        }
+        return combined;
       }
     } catch (scrapeErr) {
       console.warn(`⚠️ Puppeteer Facebook scrape fallback: ${scrapeErr.message}`);
