@@ -738,8 +738,8 @@ async function loadAccounts() {
         <td>${a.lastUsed ? new Date(a.lastUsed).toLocaleString() : '<span class="text-muted">Never</span>'}</td>
         <td class="account-status">${accountStatusBadge(a.status)}</td>
         <td style="display:flex;gap:6px;flex-wrap:wrap;">
-          <button class="btn btn-ghost btn-sm" onclick="openRenameModal('${a.username}')">✏️ Rename</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteAccount('${a.username}')">🗑️ Remove</button>
+          <button class="btn btn-ghost btn-sm" onclick="openRenameModal('${escHtml(a.username).replace(/'/g, "\\'")}')">✏️ Rename</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteAccount('${escHtml(a.username).replace(/'/g, "\\'")}')">🗑️ Remove</button>
         </td>
       </tr>`).join('');
   } catch {
@@ -759,15 +759,18 @@ function accountStatusBadge(status) {
 async function deleteAccount(username) {
   if (!confirm(`Remove account "${username}"? This will delete its token file.`)) return;
   try {
-    const res = await api(`/api/accounts/${username}`, 'DELETE');
-    if (res.ok) {
+    const res = await api(`/api/accounts/${encodeURIComponent(username)}`, 'DELETE');
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && (data.success || data.ok)) {
       toast(`🗑️ Removed ${username}`, 'warn');
       loadAccounts();
+      if (typeof loadStats === 'function') loadStats();
+      if (typeof loadPlatformStatuses === 'function') loadPlatformStatuses();
     } else {
-      toast('Failed to remove account', 'error');
+      toast(data.error || 'Failed to remove account', 'error');
     }
-  } catch {
-    toast('Network error', 'error');
+  } catch (err) {
+    toast(`Network error: ${err.message}`, 'error');
   }
 }
 
@@ -2217,11 +2220,12 @@ function handleNewTikTokAccountFileUpload(event) {
 async function deleteTikTokAccount(id) {
   if (!confirm('Are you sure you want to remove this TikTok account?')) return;
   try {
-    const res = await api(`/api/tiktok/accounts/${id}`, 'DELETE');
-    const data = await res.json();
+    const res = await api(`/api/tiktok/accounts/${encodeURIComponent(id)}`, 'DELETE');
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to delete');
     toast('TikTok account deleted', 'info');
     loadTikTokAccounts();
+    if (typeof loadStats === 'function') loadStats();
     if (typeof loadPlatforms === 'function') loadPlatforms();
   } catch (err) {
     toast(`❌ ${err.message}`, 'error');
@@ -2337,11 +2341,12 @@ function handleNewFacebookAccountFileUpload(event) {
 async function deleteFacebookAccount(id) {
   if (!confirm('Are you sure you want to remove this Facebook account?')) return;
   try {
-    const res = await api(`/api/facebook/accounts/${id}`, 'DELETE');
-    const data = await res.json();
+    const res = await api(`/api/facebook/accounts/${encodeURIComponent(id)}`, 'DELETE');
+    const data = await res.json().catch(() => ({}));
     if (!res.ok || !data.ok) throw new Error(data.error || 'Failed to delete');
     toast('Facebook account deleted', 'info');
     loadFacebookAccounts();
+    if (typeof loadStats === 'function') loadStats();
     if (typeof loadPlatforms === 'function') loadPlatforms();
   } catch (err) {
     toast(`❌ ${err.message}`, 'error');
@@ -2518,11 +2523,13 @@ function handleNewInstagramAccountFileUpload(event) {
 async function deleteInstagramAccount(id) {
   if (!confirm('Remove this Instagram account?')) return;
   try {
-    const res = await api(`/api/instagram/accounts/${id}`, 'DELETE');
-    const data = await res.json();
+    const res = await api(`/api/instagram/accounts/${encodeURIComponent(id)}`, 'DELETE');
+    const data = await res.json().catch(() => ({}));
     if (!data.ok) throw new Error(data.error || 'Failed to delete');
     toast('Instagram account removed', 'info');
     loadInstagramAccounts();
+    if (typeof loadStats === 'function') loadStats();
+    if (typeof loadPlatforms === 'function') loadPlatforms();
   } catch (err) {
     toast(`❌ ${err.message}`, 'error');
   }
@@ -2605,6 +2612,8 @@ async function submitNewTwitterAccount() {
     toast(`✅ Twitter / X account "${name || 'Account'}" added!`, 'success');
     closeModal('addTwitterAccountModal');
     loadTwitterAccounts();
+    if (typeof loadStats === 'function') loadStats();
+    if (typeof loadPlatforms === 'function') loadPlatforms();
   } catch (err) {
     if (msgEl) msgEl.innerHTML = `<span style="color:#f87171;">❌ ${err.message}</span>`;
     toast(err.message, 'error');
@@ -2616,11 +2625,13 @@ async function submitNewTwitterAccount() {
 async function deleteTwitterAccount(id) {
   if (!confirm('Remove this Twitter / X account?')) return;
   try {
-    const res = await api(`/api/twitter/accounts/${id}`, 'DELETE');
-    const data = await res.json();
+    const res = await api(`/api/twitter/accounts/${encodeURIComponent(id)}`, 'DELETE');
+    const data = await res.json().catch(() => ({}));
     if (!data.ok) throw new Error(data.error || 'Failed to delete');
     toast('Twitter / X account removed', 'info');
     loadTwitterAccounts();
+    if (typeof loadStats === 'function') loadStats();
+    if (typeof loadPlatforms === 'function') loadPlatforms();
   } catch (err) {
     toast(`❌ ${err.message}`, 'error');
   }
@@ -2701,6 +2712,8 @@ async function submitNewRedditAccount() {
     toast(`✅ Reddit account "${name || username}" added!`, 'success');
     closeModal('addRedditAccountModal');
     loadRedditAccounts();
+    if (typeof loadStats === 'function') loadStats();
+    if (typeof loadPlatforms === 'function') loadPlatforms();
   } catch (err) {
     if (msgEl) msgEl.innerHTML = `<span style="color:#f87171;">❌ ${err.message}</span>`;
     toast(err.message, 'error');
@@ -2712,11 +2725,13 @@ async function submitNewRedditAccount() {
 async function deleteRedditAccount(id) {
   if (!confirm('Remove this Reddit account?')) return;
   try {
-    const res = await api(`/api/reddit/accounts/${id}`, 'DELETE');
-    const data = await res.json();
+    const res = await api(`/api/reddit/accounts/${encodeURIComponent(id)}`, 'DELETE');
+    const data = await res.json().catch(() => ({}));
     if (!data.ok) throw new Error(data.error || 'Failed to delete');
     toast('Reddit account removed', 'info');
     loadRedditAccounts();
+    if (typeof loadStats === 'function') loadStats();
+    if (typeof loadPlatforms === 'function') loadPlatforms();
   } catch (err) {
     toast(`❌ ${err.message}`, 'error');
   }

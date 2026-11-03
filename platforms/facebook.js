@@ -145,6 +145,13 @@ function deleteAccount(id) {
     fs.unlinkSync(file);
     return true;
   }
+  if (id === 'legacy' || id === 'facebook_cookies' || id === 'default') {
+    const legacyFile = getCookieFile();
+    if (fs.existsSync(legacyFile)) {
+      fs.unlinkSync(legacyFile);
+      return true;
+    }
+  }
   return false;
 }
 

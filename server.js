@@ -253,11 +253,19 @@ let accountStats = {}; // username -> { commentsPosted, lastUsed, status }
 
 function loadUsers() {
   try {
-    if (!fs.existsSync('tokens')) {
+    const tokensDir = path.join(__dirname, 'tokens');
+    if (!fs.existsSync(tokensDir)) {
       botWarn('⚠️ tokens/ directory not found. No accounts loaded.');
       return [];
     }
-    const tokenFiles = fs.readdirSync('tokens').filter(f => f.endsWith('.json') && !f.includes('tiktok') && !f.includes('facebook'));
+    const tokenFiles = fs.readdirSync(tokensDir).filter(f =>
+      f.endsWith('.json') &&
+      !f.includes('tiktok') &&
+      !f.includes('facebook') &&
+      !f.includes('instagram') &&
+      !f.includes('twitter') &&
+      !f.includes('reddit')
+    );
     if (tokenFiles.length === 0) {
       botWarn('⚠️ No YouTube token files found. Go to Accounts tab to add YouTube accounts.');
       return [];
@@ -266,7 +274,7 @@ function loadUsers() {
     return tokenFiles.map(file => {
       const username = file.replace('.json', '');
       try {
-        const credentials = JSON.parse(fs.readFileSync(`tokens/${file}`));
+        const credentials = JSON.parse(fs.readFileSync(path.join(tokensDir, file), 'utf8'));
         if (!credentials || (!credentials.access_token && !credentials.refresh_token)) {
           return null;
         }
@@ -1152,17 +1160,51 @@ app.post('/api/accounts/reload', requireAuth, (req, res) => {
 });
 
 app.delete('/api/accounts/:username', requireAuth, (req, res) => {
-  const { username } = req.params;
-  const tokenPath = `tokens/${username}.json`;
-  if (fs.existsSync(tokenPath)) {
-    fs.unlinkSync(tokenPath);
-    users = users.filter(u => u.username !== username);
-    delete accountStats[username];
-    botWarn(`🗑️ Removed account: ${username}`);
-    res.json({ success: true });
-  } else {
-    res.status(404).json({ error: 'Account not found' });
+  const rawParam = decodeURIComponent(req.params.username || '').trim();
+  const cleanName = rawParam.replace(/\.json$/i, '');
+  const safeName = cleanName.replace(/[^a-z0-9_\-]/gi, '_');
+  const tokensDir = path.join(__dirname, 'tokens');
+
+  const candidatePaths = [
+    path.join(tokensDir, `${cleanName}.json`),
+    path.join(tokensDir, `${safeName}.json`),
+    path.join(process.cwd(), 'tokens', `${cleanName}.json`),
+    path.join(process.cwd(), 'tokens', `${safeName}.json`),
+    path.join(tokensDir, rawParam),
+  ];
+
+  let targetPath = candidatePaths.find(p => fs.existsSync(p) && fs.statSync(p).isFile());
+
+  // If still not found, search all files in tokensDir case-insensitively
+  if (!targetPath && fs.existsSync(tokensDir)) {
+    try {
+      const files = fs.readdirSync(tokensDir).filter(f => f.endsWith('.json'));
+      const matched = files.find(f => {
+        const base = f.replace(/\.json$/i, '').toLowerCase();
+        return base === cleanName.toLowerCase() || base === safeName.toLowerCase();
+      });
+      if (matched) {
+        targetPath = path.join(tokensDir, matched);
+      }
+    } catch {}
   }
+
+  if (targetPath && fs.existsSync(targetPath)) {
+    try {
+      fs.unlinkSync(targetPath);
+      users = loadUsers();
+      delete accountStats[cleanName];
+      delete accountStats[safeName];
+      botWarn(`🗑️ Removed YouTube account token: ${path.basename(targetPath)}`);
+      return res.json({ success: true, count: users.length });
+    } catch (err) {
+      botError(`❌ Failed to delete account token: ${err.message}`);
+      return res.status(500).json({ error: `Failed to delete file: ${err.message}` });
+    }
+  }
+
+  botWarn(`⚠️ Account token file not found for: "${cleanName}" in ${tokensDir}`);
+  res.status(404).json({ error: `Account token not found for "${cleanName}"` });
 });
 
 // Rename account (renames the token file)
