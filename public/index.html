@@ -15,21 +15,32 @@
   <div id="loginOverlay" class="login-overlay">
     <div class="login-card">
       <div class="login-logo">
-        <span class="logo-icon">🤖</span>
-        <span class="logo-text">Bot<span class="accent">Admin</span></span>
+        <div class="brand-glyph login-glyph">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </div>
+        <div class="brand-text-group">
+          <span class="logo-text">Nexus<span class="accent">Flow</span></span>
+          <span class="brand-tier-badge">ENTERPRISE CONTROL</span>
+        </div>
       </div>
-      <h1 class="login-title">Admin Panel</h1>
-      <p class="login-sub">Enter your password to continue</p>
+      <h1 class="login-title">Admin Console</h1>
+      <p class="login-sub">Enter your security key to access automation systems</p>
       <form id="loginForm" class="login-form">
         <div class="input-group">
-          <span class="input-icon">🔐</span>
-          <input type="password" id="loginPassword" placeholder="Admin password" autocomplete="current-password" />
+          <span class="input-icon">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          </span>
+          <input type="password" id="loginPassword" placeholder="Enter admin password..." autocomplete="current-password" />
         </div>
         <button type="submit" class="btn btn-primary btn-full" id="loginBtn">
-          <span>Sign In</span>
+          <span>Authorize Access</span>
           <span class="btn-arrow">→</span>
         </button>
-        <p id="loginError" class="login-error hidden">❌ Incorrect password. Try again.</p>
+        <p id="loginError" class="login-error hidden">❌ Invalid security credentials. Access denied.</p>
       </form>
     </div>
     <div class="login-bg-orbs">
@@ -45,43 +56,79 @@
     <!-- ──────────────── SIDEBAR ──────────────── -->
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <span class="logo-icon">🤖</span>
-        <span class="logo-text">Bot<span class="accent">Admin</span></span>
+        <div class="brand-glyph">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+            <polyline points="2 17 12 22 22 17"></polyline>
+            <polyline points="2 12 12 17 22 12"></polyline>
+          </svg>
+        </div>
+        <div class="brand-text-group">
+          <span class="logo-text">Nexus<span class="accent">Flow</span></span>
+          <span class="brand-tier-badge">PRO v2.8</span>
+        </div>
       </div>
 
       <nav class="sidebar-nav">
+        <div class="nav-section-label">Core Systems</div>
         <a href="#" class="nav-item active" data-tab="dashboard" id="nav-dashboard">
-          <span class="nav-icon">📊</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="1.5"></rect><rect x="14" y="3" width="7" height="5" rx="1.5"></rect><rect x="14" y="12" width="7" height="9" rx="1.5"></rect><rect x="3" y="16" width="7" height="5" rx="1.5"></rect></svg>
+          </span>
           <span class="nav-label">Dashboard</span>
         </a>
         <a href="#" class="nav-item" data-tab="post" id="nav-post">
-          <span class="nav-icon">💬</span>
-          <span class="nav-label">Post Comment</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><line x1="9" y1="10" x2="15" y2="10"></line><line x1="12" y1="7" x2="12" y2="13"></line></svg>
+          </span>
+          <span class="nav-label">Post Blast</span>
+          <span class="nav-badge-pill">Live</span>
         </a>
         <a href="#" class="nav-item" data-tab="trending" id="nav-trending">
-          <span class="nav-icon">🔥</span>
-          <span class="nav-label">Trending</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
+          </span>
+          <span class="nav-label">Trending Explorer</span>
         </a>
+
+        <div class="nav-section-label">Channels & Growth</div>
         <a href="#" class="nav-item" data-tab="telegram-seo" id="nav-telegram-seo">
-          <span class="nav-icon">✈️</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </span>
           <span class="nav-label">Telegram SEO</span>
         </a>
+
+        <div class="nav-section-label">Management</div>
         <a href="#" class="nav-item" data-tab="accounts" id="nav-accounts">
-          <span class="nav-icon">👥</span>
-          <span class="nav-label">Accounts</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+          </span>
+          <span class="nav-label">Connected Accounts</span>
         </a>
         <a href="#" class="nav-item" data-tab="settings" id="nav-settings">
-          <span class="nav-icon">⚙️</span>
+          <span class="nav-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          </span>
           <span class="nav-label">Settings</span>
         </a>
       </nav>
 
       <div class="sidebar-footer">
-        <div class="bot-status-pill" id="botStatusPill">
-          <span class="status-dot" id="statusDot"></span>
-          <span id="statusLabel">Connecting...</span>
+        <div class="bot-status-card" id="botStatusPill">
+          <div class="status-indicator-wrap">
+            <span class="status-pulse-ring"></span>
+            <span class="status-dot" id="statusDot"></span>
+          </div>
+          <div class="status-text-wrap">
+            <span class="status-sub">System Core</span>
+            <span class="status-title" id="statusLabel">Connecting...</span>
+          </div>
         </div>
-        <button class="btn btn-ghost btn-sm logout-btn" id="logoutBtn">🚪 Logout</button>
+        <button class="btn btn-ghost btn-sm logout-btn" id="logoutBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+          <span>Sign Out</span>
+        </button>
       </div>
     </aside>
 
@@ -91,17 +138,24 @@
       <!-- Header -->
       <header class="header">
         <div class="header-left">
-          <h2 class="page-title" id="pageTitle">Dashboard</h2>
+          <div class="header-breadcrumbs">
+            <span class="breadcrumb-root">Portal</span>
+            <span class="breadcrumb-sep">/</span>
+            <h2 class="page-title" id="pageTitle">Dashboard</h2>
+            <span class="header-status-badge">
+              <span class="live-pulse-dot"></span> Realtime Active
+            </span>
+          </div>
           <span class="page-time" id="liveClock"></span>
         </div>
         <div class="header-right">
           <!-- Theme Toggle -->
-          <button class="theme-toggle" id="themeToggle" title="Toggle light/dark mode">
+          <button class="theme-toggle" id="themeToggle" title="Toggle Light / Dark mode">
             <span class="theme-icon" id="themeIcon">🌙</span>
           </button>
           <!-- Global Country Selector -->
           <div class="country-selector-wrap" id="globalCountrySelectorWrap">
-            <label class="selector-label">🌍 Region</label>
+            <label class="selector-label">🌍 Region Target</label>
             <div class="custom-select-wrap">
               <select id="globalCountrySelect" class="custom-select"></select>
             </div>
@@ -116,34 +170,61 @@
         <section id="tab-dashboard" class="tab-panel active">
           <div class="stats-grid">
             <div class="stat-card" id="stat-accounts">
-              <div class="stat-icon">👥</div>
-              <div class="stat-body">
-                <div class="stat-value" id="statAccounts">—</div>
-                <div class="stat-label">Active Accounts</div>
+              <div class="stat-card-header">
+                <span class="stat-micro-title">AUTHENTICATED USERS</span>
+                <div class="stat-icon-badge icon-purple">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+              </div>
+              <div class="stat-value" id="statAccounts">—</div>
+              <div class="stat-footer-text">
+                <span class="stat-trend-up">● Operational</span>
+                <span class="stat-hint">Google, TikTok & FB</span>
               </div>
               <div class="stat-glow glow-purple"></div>
             </div>
+
             <div class="stat-card" id="stat-comments">
-              <div class="stat-icon">💬</div>
-              <div class="stat-body">
-                <div class="stat-value" id="statComments">—</div>
-                <div class="stat-label">Comments Posted</div>
+              <div class="stat-card-header">
+                <span class="stat-micro-title">TOTAL COMMENTS POSTED</span>
+                <div class="stat-icon-badge icon-cyan">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+              </div>
+              <div class="stat-value" id="statComments">—</div>
+              <div class="stat-footer-text">
+                <span class="stat-trend-cyan">⚡ Dispatched</span>
+                <span class="stat-hint">Across all campaigns</span>
               </div>
               <div class="stat-glow glow-cyan"></div>
             </div>
+
             <div class="stat-card" id="stat-uptime">
-              <div class="stat-icon">⏱️</div>
-              <div class="stat-body">
-                <div class="stat-value" id="statUptime">—</div>
-                <div class="stat-label">Server Uptime</div>
+              <div class="stat-card-header">
+                <span class="stat-micro-title">SYSTEM UPTIME</span>
+                <div class="stat-icon-badge icon-green">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                </div>
+              </div>
+              <div class="stat-value" id="statUptime">—</div>
+              <div class="stat-footer-text">
+                <span class="stat-trend-green">● 99.98% SLA</span>
+                <span class="stat-hint">High-availability node</span>
               </div>
               <div class="stat-glow glow-green"></div>
             </div>
+
             <div class="stat-card" id="stat-proxy">
-              <div class="stat-icon">🛡️</div>
-              <div class="stat-body">
-                <div class="stat-value" id="statProxy">—</div>
-                <div class="stat-label">Proxy Status</div>
+              <div class="stat-card-header">
+                <span class="stat-micro-title">PROXY ROTATION SHIELD</span>
+                <div class="stat-icon-badge icon-yellow">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                </div>
+              </div>
+              <div class="stat-value" id="statProxy">—</div>
+              <div class="stat-footer-text">
+                <span class="stat-trend-yellow">🛡️ Anti-Fingerprint</span>
+                <span class="stat-hint">Residential pool</span>
               </div>
               <div class="stat-glow glow-yellow"></div>
             </div>
@@ -759,54 +840,82 @@
 
   <!-- ── Add Google Account Modal ── -->
   <div id="addAccountModal" class="modal-overlay hidden">
-    <div class="modal-box">
+    <div class="modal-box modal-box-md">
       <div class="modal-header">
-        <h3>🔗 Connect Google Account</h3>
+        <div class="modal-title-wrap">
+          <div class="modal-header-icon icon-google">
+            <svg width="22" height="22" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+          </div>
+          <div>
+            <h3>Connect Google / YouTube Account</h3>
+            <p class="modal-header-sub">OAuth 2.0 Direct API Authorization</p>
+          </div>
+        </div>
         <button class="modal-close" onclick="closeModal('addAccountModal')">&times;</button>
       </div>
       <div class="modal-body">
         <div class="modal-step" id="authStep1">
-          <p class="modal-desc">Give this account a name (used to identify it in the panel), then click <strong>Generate Link</strong> to get a Google login URL.</p>
+          <p class="modal-desc">Assign a memorable label for this account to track it across comment queues, then generate your secure Google login session.</p>
           <div class="form-group">
-            <label class="form-label">Account Name</label>
-            <input id="newAccountName" type="text" class="custom-input" placeholder="e.g. user6 or myaccount" />
+            <label class="form-label">Account Label</label>
+            <input id="newAccountName" type="text" class="custom-input" placeholder="e.g. Channel_Primary or creator_01" />
           </div>
           <button class="btn btn-primary btn-full" id="generateAuthLinkBtn" onclick="generateAuthLink()">
-            <span id="genLinkBtnText">✨ Generate Login Link</span>
+            <span id="genLinkBtnText">✨ Generate Authorization Link</span>
           </button>
         </div>
 
         <div class="modal-step hidden" id="authStep2">
-          <div class="auth-success-icon">🔗</div>
-          <p class="modal-desc">Click the button below to open Google login in a new tab. Sign in and grant permission, then come back here — the account will appear automatically.</p>
-          <a id="authLinkAnchor" href="#" target="_blank" rel="noopener" class="btn btn-primary btn-full auth-link-btn">🚀 Open Google Login</a>
+          <div class="auth-hero-graphic">
+            <div class="oauth-pulse-halo">
+              <svg width="38" height="38" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/></svg>
+            </div>
+          </div>
+          <p class="modal-desc" style="text-align: center;">Click the button below to authenticate with Google. Once approved, the account token synchronizes immediately.</p>
+          <a id="authLinkAnchor" href="#" target="_blank" rel="noopener" class="btn btn-primary btn-full btn-lg auth-link-btn" style="background: linear-gradient(135deg, #4285f4, #1a73e8);">
+            <span>🚀 Open Google Login in New Tab</span>
+          </a>
           
           <div class="auth-waiting" id="authWaiting">
             <span class="spinner-sm"></span>
-            <span>Waiting for login to complete...</span>
+            <span>Awaiting OAuth authorization callback...</span>
           </div>
 
           <!-- 💡 Step-by-Step Tutorial & Troubleshooting -->
-          <div style="background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 8px; padding: 12px; margin-top: 14px; text-align: left; font-size: 12px; color: var(--text-secondary);">
-            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
-              💡 <span>Google Login Instructions & Quick Fixes</span>
+          <div class="oauth-help-card">
+            <div class="oauth-help-header">
+              <span class="badge badge-purple">Setup Guide</span>
+              <strong>Google Login & Troubleshooting</strong>
             </div>
-            <ol style="padding-left: 18px; margin: 0 0 8px 0; line-height: 1.5;">
-              <li>Click <strong>🚀 Open Google Login</strong> above and choose your Google/YouTube account.</li>
-              <li>Click <strong>Allow / Continue</strong> to grant YouTube comment permissions.</li>
-            </ol>
-            <div style="background: rgba(239, 68, 68, 0.1); border-left: 3px solid #ef4444; padding: 8px 10px; border-radius: 4px; margin-top: 8px;">
-              <strong style="color: #f87171;">⚠️ Seeing "Access blocked (Error 403)"?</strong>
-              <div style="margin-top: 4px; line-height: 1.4; color: var(--text-primary);">
-                Your Google Cloud app is currently in <em>Testing mode</em>:
-                <br>1. Open <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener" style="color: var(--purple); font-weight: 600; text-decoration: underline;">Google Cloud ➔ OAuth consent screen</a>
-                <br>2. Under <strong>Test users</strong>, click <strong>+ ADD USERS</strong>
-                <br>3. Enter your Gmail address (e.g. <code>your_email@gmail.com</code>) and click <strong>Save</strong>!
+            <div class="oauth-steps-list">
+              <div class="oauth-step-item">
+                <span class="step-num">1</span>
+                <span>Click the blue button above and select your Google/YouTube account.</span>
+              </div>
+              <div class="oauth-step-item">
+                <span class="step-num">2</span>
+                <span>Click <strong>Allow / Continue</strong> to grant YouTube comment permissions.</span>
               </div>
             </div>
-            <div style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid #f59e0b; padding: 8px 10px; border-radius: 4px; margin-top: 8px;">
-              <strong style="color: #fbbf24;">🛡️ Seeing "Google hasn't verified this app"?</strong>
-              <div style="margin-top: 4px; line-height: 1.4; color: var(--text-primary);">
+
+            <div class="oauth-callout callout-error">
+              <div class="callout-title">⚠️ Seeing "Access blocked (Error 403: access_denied)"?</div>
+              <div>
+                Your Google Cloud App is in <em>Testing mode</em>. Add your Gmail as a tester:
+                <div class="callout-actions">
+                  <a href="https://console.cloud.google.com/apis/credentials/consent" target="_blank" rel="noopener" class="callout-btn">
+                    1. Open Google Cloud ➔ OAuth consent screen ↗
+                  </a>
+                  <div style="margin-top: 4px;">
+                    2. Under <strong>Test users</strong>, click <strong>+ ADD USERS</strong>, type your Gmail address, and click <strong>Save</strong>!
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="oauth-callout callout-warn">
+              <div class="callout-title">🛡️ Seeing "Google hasn't verified this app"?</div>
+              <div>
                 Click <strong>Advanced</strong> (bottom left) ➔ <strong>Go to youtubecommentbot (unsafe)</strong> ➔ Click <strong>Continue</strong>.
               </div>
             </div>
@@ -814,9 +923,14 @@
         </div>
 
         <div class="modal-step hidden" id="authStep3">
-          <div class="auth-success-icon">✅</div>
-          <p class="modal-desc"><strong id="authSuccessName"></strong> has been connected successfully!</p>
-          <button class="btn btn-primary btn-full" onclick="closeModal('addAccountModal')">Done</button>
+          <div class="auth-success-graphic">
+            <div class="success-ring">
+              <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+          </div>
+          <h4 style="text-align:center;font-size:16px;font-weight:700;color:var(--text-primary);margin-top:8px;">Account Connected Successfully</h4>
+          <p class="modal-desc" style="text-align: center;"><strong id="authSuccessName"></strong> is now linked and active in rotation.</p>
+          <button class="btn btn-primary btn-full" onclick="closeModal('addAccountModal')">Return to Dashboard</button>
         </div>
       </div>
     </div>
@@ -824,21 +938,29 @@
 
   <!-- ── Add TikTok Account Modal ── -->
   <div id="addTikTokAccountModal" class="modal-overlay hidden">
-    <div class="modal-box">
+    <div class="modal-box modal-box-md">
       <div class="modal-header">
-        <h3>🎵 Add TikTok Account</h3>
+        <div class="modal-title-wrap">
+          <div class="modal-header-icon" style="background: rgba(254,44,85,0.12); color: #fe2c55; border-color: rgba(254,44,85,0.3);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 3 15.68 6.34 6.34 0 0 0 9.34 22a6.34 6.34 0 0 0 6.33-6.32V9.17a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-.85-.6z"/></svg>
+          </div>
+          <div>
+            <h3>Add TikTok Account</h3>
+            <p class="modal-header-sub">Session Cookie Authentication & Rotation</p>
+          </div>
+        </div>
         <button class="modal-close" onclick="closeModal('addTikTokAccountModal')">&times;</button>
       </div>
       <div class="modal-body">
         <p class="modal-desc">
-          Export cookies from <strong>Cookie-Editor</strong> (JSON) on tiktok.com and paste below, or upload the <code>.json</code> file. The bot automatically rotates between all active accounts for each video!
+          Export cookies from <strong>Cookie-Editor</strong> (Export as JSON) on tiktok.com and paste below, or upload the <code>.json</code> file. The bot automatically rotates across all active profiles.
         </p>
         <div class="form-group">
           <label class="form-label">Account Name / Label</label>
-          <input type="text" id="newTikTokAccountName" class="form-input" placeholder="e.g. Account 2 or @username" />
+          <input type="text" id="newTikTokAccountName" class="form-input" placeholder="e.g. TikTok_Marketing_01" />
         </div>
         <div class="form-group">
-          <label class="form-label">Cookie JSON</label>
+          <label class="form-label">Cookie JSON Payload</label>
           <textarea id="newTikTokAccountCookies" class="form-input" rows="5" style="font-family: monospace; font-size: 12px; resize: vertical;" placeholder='Paste JSON here... [ { "name": "sessionid", "value": "..." } ]'></textarea>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
@@ -849,32 +971,40 @@
         </div>
         <div id="newTikTokAccountMsg" style="font-size: 12px; margin-top: 10px;"></div>
       </div>
-      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 24px;">
         <button class="btn btn-ghost btn-sm" onclick="closeModal('addTikTokAccountModal')">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnSaveTikTokAccount" onclick="submitNewTikTokAccount()" style="background: #fe2c55; border-color: #fe2c55;">
+        <button class="btn btn-primary btn-sm" id="btnSaveTikTokAccount" onclick="submitNewTikTokAccount()" style="background: linear-gradient(135deg, #fe2c55, #d91b42); border-color: #fe2c55;">
           📥 Save Account
         </button>
       </div>
     </div>
   </div>
 
-    <!-- ── Add Facebook Account Modal ── -->
+  <!-- ── Add Facebook Account Modal ── -->
   <div id="addFacebookAccountModal" class="modal-overlay hidden">
-    <div class="modal-box">
+    <div class="modal-box modal-box-md">
       <div class="modal-header">
-        <h3>📘 Add Facebook Account</h3>
+        <div class="modal-title-wrap">
+          <div class="modal-header-icon" style="background: rgba(24,119,242,0.12); color: #1877f2; border-color: rgba(24,119,242,0.3);">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          </div>
+          <div>
+            <h3>Add Facebook Account</h3>
+            <p class="modal-header-sub">Session Cookie Authentication & Puppeteer Auto-Post</p>
+          </div>
+        </div>
         <button class="modal-close" onclick="closeModal('addFacebookAccountModal')">&times;</button>
       </div>
       <div class="modal-body">
         <p class="modal-desc">
-          Log in to Facebook in your browser, export cookies using <strong>Cookie-Editor</strong> (Export as JSON), and paste below or upload the <code>.json</code> file. The bot automatically rotates across all active accounts!
+          Log in to Facebook in your browser, export cookies using <strong>Cookie-Editor</strong> (Export as JSON), and paste below or upload the <code>.json</code> file.
         </p>
         <div class="form-group">
           <label class="form-label">Account Name / Label</label>
-          <input type="text" id="newFacebookAccountName" class="form-input" placeholder="e.g. FB Profile 1 or Main Account" />
+          <input type="text" id="newFacebookAccountName" class="form-input" placeholder="e.g. Facebook_Profile_01" />
         </div>
         <div class="form-group">
-          <label class="form-label">Cookie JSON</label>
+          <label class="form-label">Cookie JSON Payload</label>
           <textarea id="newFacebookAccountCookies" class="form-input" rows="5" style="font-family: monospace; font-size: 12px; resize: vertical;" placeholder='Paste JSON here... [ { "name": "c_user", "value": "..." } ]'></textarea>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; margin-top: 8px;">
@@ -885,9 +1015,9 @@
         </div>
         <div id="newFacebookAccountMsg" style="font-size: 12px; margin-top: 10px;"></div>
       </div>
-      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px;">
+      <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 8px; padding: 0 24px 24px;">
         <button class="btn btn-ghost btn-sm" onclick="closeModal('addFacebookAccountModal')">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="btnSaveFacebookAccount" onclick="submitNewFacebookAccount()" style="background: #1877f2; border-color: #1877f2;">
+        <button class="btn btn-primary btn-sm" id="btnSaveFacebookAccount" onclick="submitNewFacebookAccount()" style="background: linear-gradient(135deg, #1877f2, #1464c8); border-color: #1877f2;">
           📥 Save Account
         </button>
       </div>
