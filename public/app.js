@@ -1313,9 +1313,14 @@ async function loadPlatformStatuses() {
 }
 
 function renderPlatformManagerRow(p) {
-  const statusBadge = p.configured
-    ? `<span class="badge badge-green">✅ Connected</span>`
-    : `<span class="badge badge-red">⚠️ Not configured</span>`;
+  let statusBadge = '';
+  if (p.configured) {
+    statusBadge = `<span class="badge badge-green">✅ Connected${p.accountCount ? ` (${p.accountCount})` : ''}</span>`;
+  } else {
+    statusBadge = (p.id === 'youtube' || p.id === 'tiktok' || p.id === 'facebook') && p.accountCount === 0
+      ? `<span class="badge badge-red">⚠️ No Accounts</span>`
+      : `<span class="badge badge-red">⚠️ Not configured</span>`;
+  }
 
   // YouTube is special — no credential form
   if (p.id === 'youtube') {
@@ -1326,7 +1331,7 @@ function renderPlatformManagerRow(p) {
           <span class="pm-row-name">${p.name}</span>
           ${statusBadge}
           <span class="pm-row-posts">${p.postsThisSession} posts</span>
-          <span class="pm-row-note">Uses OAuth tokens in tokens/ folder</span>
+          <span class="pm-row-note">${p.configured ? `${p.accountCount} active OAuth account${p.accountCount > 1 ? 's' : ''}` : 'Connect account in Accounts tab'}</span>
         </div>
       </div>`;
   }
@@ -1339,7 +1344,7 @@ function renderPlatformManagerRow(p) {
       } else {
         cookieBadge = `<span class="badge badge-green" style="font-size: 0.75rem;" title="Updated ${p.cookieStatus.ageHours}h ago">🟢 Cookies Active</span>`;
       }
-    } else {
+    } else if (p.accountCount === 0 && !p.configured) {
       cookieBadge = `<span class="badge badge-yellow" style="font-size: 0.75rem;">⚠️ No Cookies</span>`;
     }
   } else if (p.hasCookies) {

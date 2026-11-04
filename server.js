@@ -1461,23 +1461,58 @@ app.get('/api/platforms', requireAuth, (req, res) => {
   const fbCookieFile = path.join(__dirname, 'tokens', 'facebook_cookies.json');
   const fbStatus = platformFacebook.getCookieStatus ? platformFacebook.getCookieStatus() : { hasCookies: fs.existsSync(fbCookieFile) };
 
-  const list = Object.values(PLATFORM_REGISTRY).map(p => ({
-    id:               p.id,
-    name:             p.name,
-    icon:             p.icon,
-    color:            p.color,
-    accent:           p.accent,
-    configured:       p.isConfigured(),
-    supportsTrending: p.supportsTrending || false,
-    postsThisSession: stats.platformStats[p.id] || 0,
-    hasCookies:       p.id === 'tiktok' ? tiktokStatus.hasCookies : (p.id === 'facebook' ? fbStatus.hasCookies : false),
-    cookieStatus:     p.id === 'tiktok' ? tiktokStatus : (p.id === 'facebook' ? fbStatus : null),
-    credentialFields: (p.credentialFields || []).map(f => ({
-      ...f,
-      value:    f.type === 'password' ? '' : (process.env[f.key] || ''),
-      hasValue: !!process.env[f.key],
-    })),
-  }));
+  const ttAccounts = platformTikTok.getAccountsList ? platformTikTok.getAccountsList().filter(a => a.valid) : [];
+  const fbAccounts = platformFacebook.getAccountsList ? platformFacebook.getAccountsList().filter(a => a.valid) : [];
+  const igAccounts = platformInstagram.getAccountsList ? platformInstagram.getAccountsList().filter(a => a.valid) : [];
+  const twAccounts = platformTwitter.getAccountsList ? platformTwitter.getAccountsList().filter(a => a.valid) : [];
+  const rdAccounts = platformReddit.getAccountsList ? platformReddit.getAccountsList().filter(a => a.valid) : [];
+
+  const list = Object.values(PLATFORM_REGISTRY).map(p => {
+    let isConnected = false;
+    let accountCount = 0;
+
+    if (p.id === 'youtube') {
+      accountCount = users.length;
+      isConnected = p.isConfigured() && accountCount > 0;
+    } else if (p.id === 'tiktok') {
+      accountCount = ttAccounts.length;
+      isConnected = accountCount > 0 || (tiktokStatus.hasCookies && !tiktokStatus.expired);
+    } else if (p.id === 'facebook') {
+      accountCount = fbAccounts.length;
+      isConnected = accountCount > 0 || (fbStatus.hasCookies && !fbStatus.expired);
+    } else if (p.id === 'instagram') {
+      accountCount = igAccounts.length;
+      isConnected = accountCount > 0 || (!!(process.env.INSTAGRAM_USERNAME && process.env.INSTAGRAM_PASSWORD) && p.isConfigured());
+    } else if (p.id === 'twitter') {
+      accountCount = twAccounts.length;
+      isConnected = accountCount > 0 || p.isConfigured();
+    } else if (p.id === 'reddit') {
+      accountCount = rdAccounts.length;
+      isConnected = accountCount > 0 || p.isConfigured();
+    } else if (p.id === 'telegram') {
+      isConnected = p.isConfigured();
+      accountCount = isConnected ? 1 : 0;
+    }
+
+    return {
+      id:               p.id,
+      name:             p.name,
+      icon:             p.icon,
+      color:            p.color,
+      accent:           p.accent,
+      configured:       isConnected,
+      accountCount:     accountCount,
+      supportsTrending: p.supportsTrending || false,
+      postsThisSession: stats.platformStats[p.id] || 0,
+      hasCookies:       p.id === 'tiktok' ? (accountCount > 0 || tiktokStatus.hasCookies) : (p.id === 'facebook' ? (accountCount > 0 || fbStatus.hasCookies) : false),
+      cookieStatus:     p.id === 'tiktok' ? tiktokStatus : (p.id === 'facebook' ? fbStatus : null),
+      credentialFields: (p.credentialFields || []).map(f => ({
+        ...f,
+        value:    f.type === 'password' ? '' : (process.env[f.key] || ''),
+        hasValue: !!process.env[f.key],
+      })),
+    };
+  });
   res.json(list);
 });
 

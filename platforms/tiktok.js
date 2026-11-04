@@ -354,10 +354,9 @@ const META = {
 };
 
 function isConfigured() {
-  const { username, password } = getTikTokCredentials();
-  const accounts = getAccountsList().filter(a => a.cookieCount > 0);
-  const hasCookies = accounts.length > 0 || !!loadSavedCookies();
-  return !!((hasCookies || (username && password)) && isPuppeteerAvailable());
+  const accounts = getAccountsList().filter(a => a.valid && a.cookieCount > 0);
+  const status = getCookieStatus();
+  return (accounts.length > 0 || (status.hasCookies && !status.expired)) && isPuppeteerAvailable();
 }
 
 async function ensureLogin(page, customCookies = null, accountName = "TikTok Account") {
