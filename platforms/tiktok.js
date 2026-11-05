@@ -410,6 +410,7 @@ async function ensureLogin(page, customCookies = null, accountName = "TikTok Acc
       const cookieHeader = raw.map(c => `${c.name}=${c.value}`).join('; ');
       await page.setExtraHTTPHeaders({
         'Cookie': cookieHeader,
+        'Accept-Language': 'en-US,en;q=0.9',
       }).catch(() => {});
 
       return true;
@@ -561,6 +562,12 @@ async function postComment(videoUrl, comment) {
     try {
       await page.evaluate(() => {
         // Try clicking Allow All button first
+        const host = document.querySelector('tiktok-cookie-banner');
+        if (host && host.shadowRoot) {
+          const btns = Array.from(host.shadowRoot.querySelectorAll('button'));
+          const allowBtn = btns.find(b => /allow all|accept|continue as guest/i.test((b.innerText || b.textContent || '').trim()));
+          if (allowBtn) allowBtn.click();
+        }
         const btns = Array.from(document.querySelectorAll('button, a, div'));
         const allowBtn = btns.find(b => /allow all|accept|continue as guest/i.test((b.innerText || b.textContent || '').trim()));
         if (allowBtn) allowBtn.click();
@@ -570,55 +577,6 @@ async function postComment(videoUrl, comment) {
       });
       await delay(800);
     } catch {}
-
-    // ─── Step 1: Wait for & Click Comments Tab ─────────────────
-    console.log('⏳ Finding and clicking Comments tab...');
-    let commentsTabCoords = null;
-    for (let attempt = 0; attempt < 12; attempt++) {
-      // Dismiss any overlay or modal
-      await page.keyboard.press('Escape').catch(() => {});
-
-      // Remove cookie banner again if re-injected
-      await page.evaluate(() => {
-        document.querySelectorAll('tiktok-cookie-banner, [class*="cookie-banner"], [id*="cookie-banner"]').forEach(el => el.remove());
-      }).catch(() => {});
-
-      commentsTabCoords = await page.evaluate(() => {
-        const all = Array.from(document.querySelectorAll('*'));
-        // 1. Look for tab with exact text "Comments" at top right
-        for (const el of all) {
-          const t = (el.innerText || el.textContent || '').trim();
-          if (t === 'Comments' || /^comments?(\s*\(.*\))?$/i.test(t)) {
-            const r = el.getBoundingClientRect();
-            if (r.left > 650 && r.top < 250 && r.width > 20 && r.height > 10) {
-              el.click();
-              return { x: r.left + r.width / 2, y: r.top + r.height / 2, text: t, tag: el.tagName };
-            }
-          }
-        }
-        // 2. Fallback: look for comment action icon next to video
-        const actionIcons = Array.from(document.querySelectorAll('[data-e2e*="comment"], [aria-label*="comment" i]'));
-        for (const el of actionIcons) {
-          const r = el.getBoundingClientRect();
-          if (r.width > 15 && r.height > 15 && r.left > 500) {
-            el.click();
-            return { x: r.left + r.width / 2, y: r.top + r.height / 2, text: 'action-icon', tag: el.tagName };
-          }
-        }
-        return null;
-      });
-
-      if (commentsTabCoords) break;
-      await delay(1500);
-    }
-
-    if (commentsTabCoords) {
-      console.log(`🎯 Found & clicking Comments tab [${commentsTabCoords.tag}] at (${Math.round(commentsTabCoords.x)}, ${Math.round(commentsTabCoords.y)})`);
-      await page.mouse.click(commentsTabCoords.x, commentsTabCoords.y);
-      await delay(2000);
-    } else {
-      console.warn('⚠️ Comments tab not found by text after waiting — checking if comments are already open...');
-    }
 
     // Check if video is unavailable or comments are turned off
     const videoStatus = await page.evaluate(() => {
@@ -631,46 +589,173 @@ async function postComment(videoUrl, comment) {
       throw new Error(`TikTok: ${videoStatus}`);
     }
 
-    // ─── Step 2: Wait for & Click "Add comment..." Input Bar ───
-    console.log('⏳ Waiting for "Add comment..." input bar...');
-    let placeholderCoords = null;
-    for (let attempt = 0; attempt < 10; attempt++) {
-      // Remove banner again to ensure clicks hit the placeholder
-      await page.evaluate(() => {
-        document.querySelectorAll('tiktok-cookie-banner, [class*="cookie-banner"]').forEach(el => el.remove());
-      }).catch(() => {});
+    // ─── Step 1: Ensure Comments Panel is Open ─────────────────
+    // On TikTok desktop, comments are typically already open on the right column.
+    // Check if comments section or comment elements are already visible.
+    console.log('⏳ Checking if comments panel is open...');
+    let isCommentsOpen = await page.evaluate(() => {
+      const isVisible = el => {
+        if (!el) return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 20 && r.height > 10;
+      };
+      // Check for editor, input bar, or existing comments
+      const input = document.querySelector('[contenteditable], [data-e2e="comment-input"], [data-e2e="comment-text-area"], div[class*="CommentInput"], div[class*="comment-input"]');
+      if (isVisible(input)) return true;
+      const list = document.querySelector('[data-e2e="comment-list"], [data-e2e="comment-item"], [data-e2e="comment-level-1"], div[class*="CommentList"], div[class*="comment-item"]');
+      if (isVisible(list)) return true;
+      return false;
+    });
 
-      placeholderCoords = await page.evaluate(() => {
-        const all = Array.from(document.querySelectorAll('*'));
-        for (const el of all) {
-          const t = (el.innerText || el.textContent || el.getAttribute('placeholder') || '').trim().toLowerCase();
-          if (t === 'add comment...' || t === 'add comment' || t.startsWith('add comment')) {
+    if (isCommentsOpen) {
+      console.log('✅ Comments panel is already open on page load.');
+    } else {
+      console.log('⏳ Comments not detected as open, finding and clicking Comments icon/tab...');
+      const openBtnCoords = await page.evaluate(() => {
+        // 1. data-e2e="comment-icon" next to video player
+        const icon = document.querySelector('[data-e2e="comment-icon"], [aria-label*="comment" i]');
+        if (icon) {
+          const r = icon.getBoundingClientRect();
+          if (r.width > 10 && r.height > 10) {
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'comment-icon' };
+          }
+        }
+        // 2. Tab or button with text "Comments"
+        const els = Array.from(document.querySelectorAll('button, div, span, a'));
+        for (const el of els) {
+          const t = (el.innerText || el.textContent || '').trim();
+          if (/^comments?(\s*\(.*\))?$/i.test(t)) {
             const r = el.getBoundingClientRect();
             if (r.width > 20 && r.height > 10 && r.left > 500) {
-              el.click();
-              return { x: r.left + r.width / 2, y: r.top + r.height / 2, text: t };
+              return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'comments-tab' };
             }
           }
         }
         return null;
       });
 
-      if (placeholderCoords) break;
+      if (openBtnCoords) {
+        console.log(`🎯 Clicking to open comments panel at (${Math.round(openBtnCoords.x)}, ${Math.round(openBtnCoords.y)}) [${openBtnCoords.type}]`);
+        await page.mouse.click(openBtnCoords.x, openBtnCoords.y);
+        await delay(2000);
+      } else {
+        console.warn('⚠️ Could not locate a specific comments button, proceeding directly to input search...');
+      }
+    }
+
+    // ─── Step 2: Locate and Activate the Comment Input Bar ────
+    console.log('⏳ Locating and clicking comment input bar...');
+    let inputActivated = false;
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      // Remove any blocking banners
+      await page.evaluate(() => {
+        document.querySelectorAll('tiktok-cookie-banner, [class*="cookie-banner"]').forEach(el => el.remove());
+      }).catch(() => {});
+
+      const targetCoords = await page.evaluate(() => {
+        const isVisible = el => {
+          if (!el) return false;
+          const r = el.getBoundingClientRect();
+          return r.width > 20 && r.height > 10;
+        };
+
+        // Priority 1: Check if contenteditable editor is ALREADY rendered
+        const activeEditor = document.querySelector('[contenteditable="true"], [contenteditable="plaintext-only"], [contenteditable], div.DraftEditor-root [contenteditable], div[role="textbox"]');
+        if (isVisible(activeEditor)) {
+          const r = activeEditor.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2, isEditor: true, sel: 'active-editor' };
+        }
+
+        // Priority 2: TikTok comment input data attributes & classes
+        const candidateSelectors = [
+          '[data-e2e="comment-input"]',
+          '[data-e2e="comment-text-area"]',
+          '[data-e2e="search-comment-input"]',
+          'div[class*="DivCommentInputContainer"]',
+          'div[class*="DivCommentInput"]',
+          'div[class*="comment-input"]',
+          'div[class*="CommentContainer"]',
+          'div[class*="InputArea"]',
+          'div[placeholder*="comment" i]',
+          'input[placeholder*="comment" i]',
+          'textarea[placeholder*="comment" i]',
+        ];
+        for (const s of candidateSelectors) {
+          const el = document.querySelector(s);
+          if (isVisible(el)) {
+            const r = el.getBoundingClientRect();
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2, isEditor: false, sel: s };
+          }
+        }
+
+        // Priority 3: Scan all elements for "comment" placeholder or text in right panel
+        const all = Array.from(document.querySelectorAll('*'));
+        for (const el of all) {
+          const text = (el.innerText || el.textContent || el.getAttribute('placeholder') || '').trim().toLowerCase();
+          if (text.includes('add comment') || text.includes('leave a comment') || text === 'comment...' || text === 'add a comment...') {
+            if (isVisible(el)) {
+              const r = el.getBoundingClientRect();
+              if (r.left > 500) {
+                return { x: r.left + r.width / 2, y: r.top + r.height / 2, isEditor: false, sel: 'text-match: ' + text.slice(0, 20) };
+              }
+            }
+          }
+        }
+
+        return null;
+      });
+
+      if (targetCoords) {
+        console.log(`🎯 Clicking comment input bar at (${Math.round(targetCoords.x)}, ${Math.round(targetCoords.y)}) [${targetCoords.sel}]`);
+        await page.mouse.click(targetCoords.x, targetCoords.y);
+        await delay(1200);
+        inputActivated = true;
+        break;
+      }
+
       await delay(1500);
     }
 
-    if (placeholderCoords) {
-      console.log(`🎯 Clicked "Add comment..." placeholder at (${Math.round(placeholderCoords.x)}, ${Math.round(placeholderCoords.y)})`);
-      await page.mouse.click(placeholderCoords.x, placeholderCoords.y);
-      await delay(1500);
-    } else {
-      console.warn('⚠️ "Add comment..." placeholder not found by text after waiting, clicking default bottom area (1150, 865)...');
-      await page.mouse.click(1150, 865);
+    if (!inputActivated) {
+      console.warn('⚠️ Could not find comment input by selector, trying fallback click at bottom right (1150, 855)...');
+      await page.mouse.click(1150, 855);
       await delay(1500);
     }
 
-    // ─── Step 3: Wait for [contenteditable="true"] DraftEditor ──
-    let commentInput = await page.waitForSelector('[contenteditable="true"], div.DraftEditor-root [contenteditable="true"]', { timeout: 10000 }).catch(() => null);
+    // ─── Step 3: Wait for Active [contenteditable] / DraftEditor ─
+    console.log('⏳ Waiting for active comment input editor...');
+    let commentInput = null;
+    const editorSelectors = [
+      '[contenteditable="true"]',
+      '[contenteditable="plaintext-only"]',
+      '[contenteditable]',
+      'div.DraftEditor-root [contenteditable]',
+      'div.public-DraftEditor-content',
+      'div[data-e2e="comment-input"] [contenteditable]',
+      'div[role="textbox"]',
+      'textarea[placeholder*="comment" i]',
+      'input[placeholder*="comment" i]',
+    ];
+
+    for (let attempt = 0; attempt < 8; attempt++) {
+      for (const sel of editorSelectors) {
+        const el = await page.$(sel);
+        if (el) {
+          const isVis = await page.evaluate(node => {
+            if (!node) return false;
+            const r = node.getBoundingClientRect();
+            return r.width > 20 && r.height > 10;
+          }, el);
+          if (isVis) {
+            commentInput = el;
+            break;
+          }
+        }
+      }
+      if (commentInput) break;
+      await delay(1000);
+    }
 
     if (!commentInput) {
       const loginPrompt = await page.evaluate(() => {
@@ -684,7 +769,18 @@ async function postComment(videoUrl, comment) {
         lastCookieError = loginPrompt;
         throw new Error(`${loginPrompt}. Please update cookies in dashboard Settings.`);
       }
-      throw new Error('Comment input editor did not open after clicking "Add comment..."');
+
+      // Check for age restriction or comments off
+      const pageText = await page.evaluate(() => document.body ? document.body.innerText.slice(0, 300) : '');
+      console.warn('⚠️ Page text snippet at failure:', pageText);
+
+      try {
+        const errPath = path.join(__dirname, '..', 'public', 'tiktok_last_error.png');
+        await page.screenshot({ path: errPath });
+        console.log('📸 Saved debug screenshot to public/tiktok_last_error.png');
+      } catch {}
+
+      throw new Error('Comment input editor did not open after clicking "Add comment...". View screenshot at https://botcomment.ink/tiktok_last_error.png');
     }
 
     await commentInput.click();
@@ -697,15 +793,15 @@ async function postComment(videoUrl, comment) {
 
     // Verify if text was entered
     let editorText = await page.evaluate(() => {
-      const el = document.querySelector('[contenteditable="true"]');
-      return el ? (el.innerText || el.textContent || '').trim() : '';
+      const el = document.querySelector('[contenteditable="true"], [contenteditable], div[role="textbox"], textarea');
+      return el ? (el.innerText || el.textContent || el.value || '').trim() : '';
     });
 
     // 2. If keyboard typing didn't populate Draft.js, fallback to execCommand + input events
     if (!editorText || editorText.length === 0) {
       console.log('⚠️ Editor text empty after keyboard.type, trying execCommand injection...');
       await page.evaluate((text) => {
-        const el = document.querySelector('[contenteditable="true"]');
+        const el = document.querySelector('[contenteditable="true"], [contenteditable], div[role="textbox"]');
         if (el) {
           el.focus();
           document.execCommand('selectAll', false, null);
@@ -718,8 +814,8 @@ async function postComment(videoUrl, comment) {
       await delay(1000);
 
       editorText = await page.evaluate(() => {
-        const el = document.querySelector('[contenteditable="true"]');
-        return el ? (el.innerText || el.textContent || '').trim() : '';
+        const el = document.querySelector('[contenteditable="true"], [contenteditable], div[role="textbox"], textarea');
+        return el ? (el.innerText || el.textContent || el.value || '').trim() : '';
       });
     }
 
@@ -733,33 +829,50 @@ async function postComment(videoUrl, comment) {
       await page.screenshot({ path: path.join(__dirname, '..', 'public', 'tiktok_editor_filled.png') });
     } catch {}
 
-    // Find and click Post button
-    const postClicked = await page.evaluate(() => {
+    // Find and click Post button cleanly (single pointer click)
+    const postCoords = await page.evaluate(() => {
+      const isVisible = el => {
+        if (!el) return false;
+        const r = el.getBoundingClientRect();
+        return r.width > 15 && r.height > 10;
+      };
+
       // 1. data-e2e="comment-post"
       const e2eBtn = document.querySelector('[data-e2e="comment-post"]');
-      if (e2eBtn) {
+      if (isVisible(e2eBtn)) {
         const r = e2eBtn.getBoundingClientRect();
-        e2eBtn.click();
-        return { clicked: true, x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'data-e2e' };
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'data-e2e' };
       }
-      // 2. Element with text "Post" in bottom right
+
+      // 2. Element with text "Post" in right panel
       const all = Array.from(document.querySelectorAll('button, div, span'));
       for (const el of all) {
         const t = (el.innerText || el.textContent || '').trim().toLowerCase();
         if (t === 'post') {
-          const r = el.getBoundingClientRect();
-          if (r.left > 800 && r.top > 600 && r.width > 15 && r.height > 10) {
-            el.click();
-            return { clicked: true, x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'text-post' };
+          if (isVisible(el)) {
+            const r = el.getBoundingClientRect();
+            if (r.left > 600 && r.top > 400) {
+              return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'text-post' };
+            }
           }
         }
       }
+
+      // 3. Post SVG / button icon
+      const postSvgs = document.querySelectorAll('[data-e2e*="post"], button[type="submit"]');
+      for (const btn of postSvgs) {
+        if (isVisible(btn)) {
+          const r = btn.getBoundingClientRect();
+          return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'button-submit' };
+        }
+      }
+
       return null;
     });
 
-    if (postClicked) {
-      console.log(`🚀 Clicked Post button at (${Math.round(postClicked.x)}, ${Math.round(postClicked.y)}) [${postClicked.type}]`);
-      await page.mouse.click(postClicked.x, postClicked.y);
+    if (postCoords) {
+      console.log(`🚀 Clicking Post button at (${Math.round(postCoords.x)}, ${Math.round(postCoords.y)}) [${postCoords.type}]`);
+      await page.mouse.click(postCoords.x, postCoords.y);
     } else {
       console.log('⌨️ Post button not found, pressing Enter key...');
       await page.keyboard.press('Enter');
@@ -779,16 +892,18 @@ async function postComment(videoUrl, comment) {
       console.log(`📸 Saved post screenshot to public/tiktok_last_post.png`);
     } catch {}
 
-    const postStatus = await page.evaluate((originalComment) => {
+    const postStatus = await page.evaluate((originalComment, accName) => {
       // 1. Check if comment was posted (appears in list or editor was cleared)
       const comments = Array.from(document.querySelectorAll('[data-e2e="comment-level-1"], [class*="CommentItem"], [class*="comment-text"], div[class*="comment"]'));
+      const usernameToCheck = (accName || '').replace(/^@/, '').toLowerCase();
       const foundInList = comments.some(c => {
-        const t = c.innerText || '';
-        return t.includes(originalComment.slice(0, 15)) || ((t.includes('1s ago') || t.includes('Just now')) && t.includes('renepacho1'));
+        const t = (c.innerText || '').toLowerCase();
+        return t.includes(originalComment.slice(0, 15).toLowerCase()) ||
+          ((t.includes('1s ago') || t.includes('just now')) && (usernameToCheck ? t.includes(usernameToCheck) : true));
       });
 
-      const editor = document.querySelector('[contenteditable="true"].public-DraftEditor-content, [contenteditable="true"]');
-      const remainingText = editor ? (editor.innerText || '').trim() : '';
+      const editor = document.querySelector('[contenteditable="true"].public-DraftEditor-content, [contenteditable="true"], [contenteditable], div[role="textbox"]');
+      const remainingText = editor ? (editor.innerText || editor.textContent || editor.value || '').trim() : '';
 
       // If the comment appears in comments list OR editor text is gone, it successfully posted!
       if (foundInList || remainingText.length === 0) {
@@ -823,7 +938,7 @@ async function postComment(videoUrl, comment) {
       }
 
       return { remainingText, foundInList };
-    }, comment);
+    }, comment, accountName);
 
     if (postStatus.error) {
       throw new Error(`TikTok rejected comment: ${postStatus.error}`);
