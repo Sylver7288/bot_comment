@@ -938,8 +938,26 @@ app.post('/api/proxy/test', requireAuth, async (req, res) => {
       proxy: false,
       timeout: 9000,
     });
-    botOk(`✅ Proxy test successful! Public IP: ${testRes.data.ip}`);
-    return res.json({ ok: true, ip: testRes.data.ip, message: `Connected! Proxy IP: ${testRes.data.ip}` });
+    const ip = testRes.data.ip;
+    let country = '';
+    let countryCode = '';
+    try {
+      const geo = await axios.get(`http://ip-api.com/json/${ip}?fields=status,country,countryCode,city`, { timeout: 3500 });
+      if (geo.data && geo.data.status === 'success') {
+        country = geo.data.country || '';
+        countryCode = (geo.data.countryCode || '').toUpperCase();
+      }
+    } catch {}
+
+    if (countryCode === 'IN') {
+      const warnMsg = `⚠️ Connected! Proxy IP: ${ip} (${country} 🇮🇳). WARNING: TikTok is banned in India and blocks Indian IPs (HTTP 403). For TikTok, switch proxy country to US, SG, or GB!`;
+      botWarn(warnMsg);
+      return res.json({ ok: true, ip, country, countryCode, warning: true, message: warnMsg });
+    }
+
+    const okMsg = `Connected! Proxy IP: ${ip}${country ? ` (${country})` : ''}`;
+    botOk(`✅ Proxy test successful! ${okMsg}`);
+    return res.json({ ok: true, ip, country, countryCode, message: okMsg });
   } catch (err) {
     let msg = err.message;
     if (err.response?.status === 407 || msg.includes('407')) {
