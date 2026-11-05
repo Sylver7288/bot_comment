@@ -949,15 +949,46 @@ app.post('/api/proxy/test', requireAuth, async (req, res) => {
       }
     } catch {}
 
+    // Test direct TikTok reachability through proxy
+    let tiktokOk = true;
+    let tiktokMsg = '';
+    try {
+      const ttRes = await axios.get('https://www.tiktok.com/@tiktok', {
+        httpsAgent: agent,
+        proxy: false,
+        timeout: 8000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+      });
+      tiktokOk = (ttRes.status === 200);
+      tiktokMsg = `TikTok HTTP ${ttRes.status}`;
+    } catch (ttErr) {
+      const st = ttErr.response ? ttErr.response.status : null;
+      if (st === 403) {
+        tiktokOk = false;
+        tiktokMsg = 'TikTok WAF: Blocked (HTTP 403 Access Denied)';
+      } else {
+        tiktokMsg = `TikTok: ${st ? 'HTTP ' + st : ttErr.message}`;
+      }
+    }
+
     if (countryCode === 'IN') {
       const warnMsg = `⚠️ Connected! Proxy IP: ${ip} (${country} 🇮🇳). WARNING: TikTok is banned in India and blocks Indian IPs (HTTP 403). For TikTok, switch proxy country to US, SG, or GB!`;
       botWarn(warnMsg);
-      return res.json({ ok: true, ip, country, countryCode, warning: true, message: warnMsg });
+      return res.json({ ok: true, ip, country, countryCode, tiktokOk: false, warning: true, message: warnMsg });
     }
 
-    const okMsg = `Connected! Proxy IP: ${ip}${country ? ` (${country})` : ''}`;
+    if (!tiktokOk) {
+      const warnMsg = `⚠️ Proxy IP: ${ip} (${country}). ${tiktokMsg}. TikTok is blocking this specific exit node. Try switching Host to pr.lumiproxy.com or generating a new session in LumiProxy!`;
+      botWarn(warnMsg);
+      return res.json({ ok: true, ip, country, countryCode, tiktokOk: false, warning: true, message: warnMsg });
+    }
+
+    const okMsg = `Connected! Proxy IP: ${ip}${country ? ` (${country})` : ''} — TikTok verified ✅`;
     botOk(`✅ Proxy test successful! ${okMsg}`);
-    return res.json({ ok: true, ip, country, countryCode, message: okMsg });
+    return res.json({ ok: true, ip, country, countryCode, tiktokOk: true, message: okMsg });
   } catch (err) {
     let msg = err.message;
     if (err.response?.status === 407 || msg.includes('407')) {
