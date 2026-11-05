@@ -625,58 +625,84 @@ async function postComment(videoUrl, comment) {
       throw new Error(`TikTok: ${videoStatus}`);
     }
 
-    // ─── Step 1: Ensure Comments Panel is Open ─────────────────
-    // On TikTok desktop, comments are typically already open on the right column.
-    // Check if comments section or comment elements are already visible.
-    console.log('⏳ Checking if comments panel is open...');
-    let isCommentsOpen = await page.evaluate(() => {
-      const isVisible = el => {
-        if (!el) return false;
-        const r = el.getBoundingClientRect();
-        return r.width > 20 && r.height > 10;
-      };
-      // Check for editor, input bar, or existing comments
-      const input = document.querySelector('[contenteditable], [data-e2e="comment-input"], [data-e2e="comment-text-area"], div[class*="CommentInput"], div[class*="comment-input"]');
-      if (isVisible(input)) return true;
-      const list = document.querySelector('[data-e2e="comment-list"], [data-e2e="comment-item"], [data-e2e="comment-level-1"], div[class*="CommentList"], div[class*="comment-item"]');
-      if (isVisible(list)) return true;
-      return false;
-    });
+    // ─── Step 1: Force Switch to "Comments" Tab ────────────────
+    console.log('⏳ Ensuring Comments tab is active...');
+    let commentsPanelOpen = false;
 
-    if (isCommentsOpen) {
-      console.log('✅ Comments panel is already open on page load.');
-    } else {
-      console.log('⏳ Comments not detected as open, finding and clicking Comments icon/tab...');
-      const openBtnCoords = await page.evaluate(() => {
-        // 1. Tab or button with text "Comments" in right column
-        const tabs = Array.from(document.querySelectorAll('[role="tab"], button, div, span, p, h2, h3, a'));
-        for (const el of tabs) {
+    for (let attempt = 1; attempt <= 6; attempt++) {
+      // Check if comments are ALREADY open (meaning input or "Add comment..." placeholder is visible on screen in right panel)
+      commentsPanelOpen = await page.evaluate(() => {
+        const isVis = el => {
+          if (!el) return false;
+          const r = el.getBoundingClientRect();
+          const s = window.getComputedStyle(el);
+          return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && r.width > 20 && r.height > 10;
+        };
+
+        // If contenteditable or comment input is visible in right panel
+        const input = document.querySelector('[contenteditable="true"], [contenteditable], div[role="textbox"], textarea[placeholder*="comment" i]');
+        if (isVis(input) && input.getBoundingClientRect().left > 400) return true;
+
+        // If placeholder "Add comment..." is visible in right panel
+        const all = Array.from(document.querySelectorAll('*'));
+        for (const el of all) {
+          const t = (el.innerText || el.textContent || el.getAttribute('placeholder') || '').trim().toLowerCase();
+          if (t === 'add comment...' || t === 'add comment' || t.startsWith('add comment')) {
+            if (isVis(el) && el.getBoundingClientRect().left > 400) return true;
+          }
+        }
+        return false;
+      });
+
+      if (commentsPanelOpen) {
+        console.log(`✅ Comments panel is confirmed active (attempt ${attempt})`);
+        break;
+      }
+
+      console.log(`🎯 Attempt ${attempt}: Switching to Comments tab via DOM click and coordinates...`);
+
+      // Dismiss any popups or cookie overlays
+      await page.keyboard.press('Escape').catch(() => {});
+      await page.evaluate(() => {
+        document.querySelectorAll('tiktok-cookie-banner, [class*="cookie-banner"], [id*="cookie-banner"]').forEach(el => el.remove());
+      }).catch(() => {});
+
+      const tabClickInfo = await page.evaluate(() => {
+        // 1. Search for any tab / button / text node with "Comments" in the right column
+        const all = Array.from(document.querySelectorAll('*'));
+        for (const el of all) {
           const t = (el.innerText || el.textContent || '').trim();
           if (t === 'Comments' || /^comments?(\s*\(.*\))?$/i.test(t)) {
             const r = el.getBoundingClientRect();
-            if (r.width > 15 && r.height > 8 && r.left > 400) {
-              return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'comments-tab' };
+            // In the right sidebar: left > 350
+            if (r.left > 350 && r.width > 15 && r.height > 8) {
+              el.click();
+              if (el.parentElement) el.parentElement.click();
+              return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'comments-tab-text' };
             }
           }
         }
-        // 2. Comment speech bubble icon next to video player
-        const icons = Array.from(document.querySelectorAll('[data-e2e*="comment"], [aria-label*="comment" i]'));
-        for (const icon of icons) {
+
+        // 2. Action bar comment icon button next to video player
+        const actionIcons = Array.from(document.querySelectorAll('[data-e2e*="comment"], [aria-label*="comment" i]'));
+        for (const icon of actionIcons) {
           const r = icon.getBoundingClientRect();
-          if (r.width > 10 && r.height > 10 && r.left < 1000) {
-            return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'comment-icon' };
+          if (r.width > 12 && r.height > 12) {
+            icon.click();
+            if (icon.parentElement) icon.parentElement.click();
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'comment-action-icon' };
           }
         }
+
         return null;
       });
 
-      if (openBtnCoords) {
-        console.log(`🎯 Clicking to open comments panel at (${Math.round(openBtnCoords.x)}, ${Math.round(openBtnCoords.y)}) [${openBtnCoords.type}]`);
-        await page.mouse.click(openBtnCoords.x, openBtnCoords.y);
-        await delay(2000);
-      } else {
-        console.warn('⚠️ Could not locate a specific comments button, proceeding directly to input search...');
+      if (tabClickInfo) {
+        console.log(`🎯 Clicked Comments [${tabClickInfo.type}] at (${Math.round(tabClickInfo.x)}, ${Math.round(tabClickInfo.y)})`);
+        await page.mouse.click(tabClickInfo.x, tabClickInfo.y).catch(() => {});
       }
+
+      await delay(2000);
     }
 
     // ─── Step 2: Locate and Activate the Comment Input Bar ────
@@ -693,17 +719,34 @@ async function postComment(videoUrl, comment) {
         const isVisible = el => {
           if (!el) return false;
           const r = el.getBoundingClientRect();
-          return r.width > 20 && r.height > 10;
+          const s = window.getComputedStyle(el);
+          return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && r.width > 20 && r.height > 10;
         };
 
         // Priority 1: Check if contenteditable editor is ALREADY rendered
         const activeEditor = document.querySelector('[contenteditable="true"], [contenteditable="plaintext-only"], [contenteditable], div.DraftEditor-root [contenteditable], div[role="textbox"]');
-        if (isVisible(activeEditor)) {
+        if (isVisible(activeEditor) && activeEditor.getBoundingClientRect().left > 400) {
+          activeEditor.focus();
+          activeEditor.click();
           const r = activeEditor.getBoundingClientRect();
           return { x: r.left + r.width / 2, y: r.top + r.height / 2, isEditor: true, sel: 'active-editor' };
         }
 
-        // Priority 2: TikTok comment input data attributes & classes
+        // Priority 2: Text match "Add comment..." in right panel
+        const all = Array.from(document.querySelectorAll('*'));
+        for (const el of all) {
+          const text = (el.innerText || el.textContent || el.getAttribute('placeholder') || '').trim().toLowerCase();
+          if (text === 'add comment...' || text === 'add comment' || text.startsWith('add comment')) {
+            if (isVisible(el) && el.getBoundingClientRect().left > 400) {
+              el.click();
+              if (el.parentElement) el.parentElement.click();
+              const r = el.getBoundingClientRect();
+              return { x: r.left + r.width / 2, y: r.top + r.height / 2, isEditor: false, sel: 'text-match: ' + text.slice(0, 20) };
+            }
+          }
+        }
+
+        // Priority 3: TikTok comment input data attributes & classes
         const candidateSelectors = [
           '[data-e2e="comment-input"]',
           '[data-e2e="comment-text-area"]',
@@ -719,23 +762,11 @@ async function postComment(videoUrl, comment) {
         ];
         for (const s of candidateSelectors) {
           const el = document.querySelector(s);
-          if (isVisible(el)) {
+          if (isVisible(el) && el.getBoundingClientRect().left > 400) {
+            el.click();
+            if (el.parentElement) el.parentElement.click();
             const r = el.getBoundingClientRect();
             return { x: r.left + r.width / 2, y: r.top + r.height / 2, isEditor: false, sel: s };
-          }
-        }
-
-        // Priority 3: Scan all elements for "comment" placeholder or text in right panel
-        const all = Array.from(document.querySelectorAll('*'));
-        for (const el of all) {
-          const text = (el.innerText || el.textContent || el.getAttribute('placeholder') || '').trim().toLowerCase();
-          if (text.includes('add comment') || text.includes('leave a comment') || text === 'comment...' || text === 'add a comment...') {
-            if (isVisible(el)) {
-              const r = el.getBoundingClientRect();
-              if (r.left > 500) {
-                return { x: r.left + r.width / 2, y: r.top + r.height / 2, isEditor: false, sel: 'text-match: ' + text.slice(0, 20) };
-              }
-            }
           }
         }
 
@@ -762,17 +793,6 @@ async function postComment(videoUrl, comment) {
     // ─── Step 3: Wait for Active [contenteditable] / DraftEditor ─
     console.log('⏳ Waiting for active comment input editor...');
     let commentInput = null;
-    const editorSelectors = [
-      '[contenteditable="true"]',
-      '[contenteditable="plaintext-only"]',
-      '[contenteditable]',
-      'div.DraftEditor-root [contenteditable]',
-      'div.public-DraftEditor-content',
-      'div[data-e2e="comment-input"] [contenteditable]',
-      'div[role="textbox"]',
-      'textarea[placeholder*="comment" i]',
-      'input[placeholder*="comment" i]',
-    ];
 
     for (let attempt = 0; attempt < 8; attempt++) {
       const handle = await page.evaluateHandle(() => {
@@ -780,7 +800,7 @@ async function postComment(videoUrl, comment) {
           if (!node) return false;
           const r = node.getBoundingClientRect();
           const s = window.getComputedStyle(node);
-          return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && r.width > 15 && r.height > 8;
+          return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && r.width > 15 && r.height > 8 && r.left > 400;
         };
         const selectors = [
           'div[data-e2e="comment-input"] [contenteditable]',
@@ -892,6 +912,7 @@ async function postComment(videoUrl, comment) {
       // 1. data-e2e="comment-post"
       const e2eBtn = document.querySelector('[data-e2e="comment-post"]');
       if (isVisible(e2eBtn)) {
+        try { e2eBtn.click(); } catch {}
         const r = e2eBtn.getBoundingClientRect();
         return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'data-e2e' };
       }
@@ -903,7 +924,8 @@ async function postComment(videoUrl, comment) {
         if (t === 'post') {
           if (isVisible(el)) {
             const r = el.getBoundingClientRect();
-            if (r.left > 600 && r.top > 400) {
+            if (r.left > 400 && r.top > 300) {
+              try { el.click(); } catch {}
               return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'text-post' };
             }
           }
@@ -914,6 +936,7 @@ async function postComment(videoUrl, comment) {
       const postSvgs = document.querySelectorAll('[data-e2e*="post"], button[type="submit"]');
       for (const btn of postSvgs) {
         if (isVisible(btn)) {
+          try { btn.click(); } catch {}
           const r = btn.getBoundingClientRect();
           return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'button-submit' };
         }
