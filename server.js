@@ -458,10 +458,12 @@ let keywords = loadKeywords();
 
 async function generateReply(input, sourceType, language = 'Indonesian', useKeyword = true, platformName = 'YouTube') {
   try {
+    const isTikTok = (platformName || '').toLowerCase().includes('tiktok');
     const chosenKeyword = keywords[Math.floor(Math.random() * keywords.length)];
     if (!openai) {
       botWarn('⚠️ OpenAI API key not configured. Using fallback comment template.');
       const fallbackText = useKeyword ? `Nice video! #${chosenKeyword}` : 'Great video!';
+      if (isTikTok) return fallbackText;
       let fallbackReply = useKeyword
         ? injectRandomEmojis(obfuscateKeyword(fallbackText, chosenKeyword), 'gambling')
         : fallbackText;
@@ -486,6 +488,23 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
 
     let reply = response.choices[0]?.message?.content?.trim();
     if (!reply || reply.length < 3) reply = useKeyword ? `Nice content. #${chosenKeyword}` : 'Nice content!';
+
+    // Strip wrapping quotes if AI outputted them
+    reply = reply.replace(/^["'“](.*)["'”]$/, '$1').trim();
+
+    // ── Special handling for TikTok ────────────────────────────
+    // For TikTok, keep comments 100% natural and clean:
+    // 1. NO forced gambling emojis (🎰, 💸, 🎲, etc.)
+    // 2. NO letter-spacing or zero-width split characters inside keywords
+    // 3. NO markdown asterisks (**...**) which TikTok renders literally
+    if (isTikTok) {
+      if (useKeyword && chosenKeyword && !reply.toLowerCase().includes(chosenKeyword.toLowerCase())) {
+        reply = `${reply} #${chosenKeyword}`;
+      }
+      return reply;
+    }
+
+    // ── For other platforms (YouTube, Telegram, etc.) ─────────
     if (useKeyword) {
       reply = obfuscateKeyword(reply, chosenKeyword);
       reply = injectRandomEmojis(reply, 'gambling');
@@ -494,6 +513,10 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
     return reply;
   } catch (err) {
     botError(`❌ AI generation error: ${err.message}`);
+    const isTikTok = (platformName || '').toLowerCase().includes('tiktok');
+    if (isTikTok) {
+      return useKeyword ? `Nice video! #${keywords[0]}` : 'Great video!';
+    }
     return useKeyword
       ? injectRandomEmojis(obfuscateKeyword(`Nice content. #${keywords[0]}`, keywords[0]), 'gambling')
       : 'Great video!';
@@ -1426,7 +1449,7 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
               const comment = await generateReply(input, sourceType, language, true, platform.name);
               botLog(`💬 Comment text: "${comment}"`);
               botLog(`📤 Posting to ${platform.icon} ${platform.name}...`);
-              await platform.postComment(currentUrl, comment);
+              const postRes = await platform.postComment(currentUrl, comment);
               stats.platformStats[platformId] = (stats.platformStats[platformId] || 0) + 1;
               stats.commentsPosted++;
               stats.lastCommentTime = Date.now();
@@ -1442,7 +1465,11 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
               });
               if (stats.commentHistory.length > 50) stats.commentHistory.pop();
               sendTelegram(`✅ Posted comment to <b>${platform.icon} ${platform.name}</b>\n🔗 <code>${currentUrl}</code>\n💬 "${comment.substring(0, 100)}..."`);
-              botOk(`✅ ${platform.icon} ${platform.name} posted: "${comment}"`);
+              const urlSuffix = postRes && postRes.url && postRes.url !== currentUrl ? ` (at ${postRes.url})` : '';
+              botOk(`✅ ${platform.icon} ${platform.name} posted: "${comment}"${urlSuffix}`);
+              if (platformId === 'tiktok') {
+                botLog(`📸 View proof screenshot at: https://botcomment.ink/tiktok_last_post.png`);
+              }
               io.emit('platformDone', { platform: platformId, success: [platformId], comment, failed: [] });
             } catch (err) {
               botError(`❌ ${platform.icon} ${platform.name} failed: ${err.message}`);

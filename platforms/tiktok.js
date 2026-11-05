@@ -594,6 +594,29 @@ async function postComment(videoUrl, comment) {
     }, { timeout: 20000 }).catch(() => {});
     await delay(1500);
 
+    // Prevent TikTok desktop from auto-advancing/scrolling to the next video when the clip ends
+    await page.evaluate(() => {
+      document.querySelectorAll('video').forEach(v => {
+        try {
+          v.pause();
+          v.loop = true;
+          v.removeAttribute('autoplay');
+        } catch {}
+      });
+    }).catch(() => {});
+
+    // Check if TikTok redirected or auto-scrolled away from the requested video URL
+    const targetVideoId = cleanVideoUrl.match(/video\/(\d+)/)?.[1] || '';
+    const currentVideoId = page.url().match(/video\/(\d+)/)?.[1] || '';
+    if (targetVideoId && currentVideoId && targetVideoId !== currentVideoId) {
+      console.warn(`⚠️ TikTok auto-scrolled/redirected from video ${targetVideoId} to ${currentVideoId}! Returning to target video...`);
+      await page.goto(cleanVideoUrl, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => {});
+      await delay(2000);
+      await page.evaluate(() => {
+        document.querySelectorAll('video').forEach(v => { try { v.pause(); v.loop = true; } catch {} });
+      }).catch(() => {});
+    }
+
     // Dismiss & remove any cookie/guest banner from DOM so it cannot block clicks
     try {
       await page.evaluate(() => {
@@ -961,10 +984,11 @@ async function postComment(videoUrl, comment) {
     await delay(6000);
 
     // Always take a proof screenshot of the post attempt
+    const finalPostUrl = page.url();
     try {
       const proofPath = path.join(__dirname, '..', 'public', 'tiktok_last_post.png');
       await page.screenshot({ path: proofPath });
-      console.log(`📸 Saved post screenshot to public/tiktok_last_post.png`);
+      console.log(`📸 Saved post screenshot to public/tiktok_last_post.png (URL: ${finalPostUrl})`);
     } catch {}
 
     const postStatus = await page.evaluate((originalComment, accName) => {
@@ -982,7 +1006,7 @@ async function postComment(videoUrl, comment) {
 
       // If the comment appears in comments list OR editor text is gone, it successfully posted!
       if (foundInList || remainingText.length === 0) {
-        return { success: true, remainingText: '', foundInList: true };
+        return { success: true, remainingText: '', foundInList };
       }
 
       // 2. Check for VISIBLE TikTok captcha / puzzle challenge modal
@@ -1024,7 +1048,8 @@ async function postComment(videoUrl, comment) {
       throw new Error(`TikTok comment submission failed: text remained in editor (${postStatus.remainingText.substring(0, 30)}...)`);
     }
 
-    return { success: true, platform: 'tiktok' };
+    console.log(`✅ TikTok comment verified: submitted successfully! (Appears in list: ${postStatus.foundInList})`);
+    return { success: true, platform: 'tiktok', url: finalPostUrl, verifiedInList: postStatus.foundInList };
   } catch (err) {
     try {
       const errPath = path.join(__dirname, '..', 'public', 'tiktok_last_error.png');
