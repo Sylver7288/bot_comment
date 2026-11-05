@@ -1640,7 +1640,11 @@ app.post('/api/tiktok/cookies', requireAuth, (req, res) => {
     const status = platformTikTok.saveCookies(cookies);
     // Also save/update in accounts directory as default account
     if (platformTikTok.saveAccount) {
-      try { platformTikTok.saveAccount('Account 1 (@renepacho1)', cookies); } catch {}
+      try {
+        const u = (process.env.TIKTOK_USERNAME || '').trim();
+        const cleanName = u ? (u.includes('@') && u.includes('.com') ? `@${u.split('@')[0]}` : (u.startsWith('@') ? u : `@${u}`)) : 'TikTok Account';
+        platformTikTok.saveAccount(cleanName, cookies);
+      } catch {}
     }
     botOk(`🍪 TikTok cookies updated via admin panel (${status.cookieCount} cookies, valid: ${status.valid})`);
     res.json({ ok: true, status });

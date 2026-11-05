@@ -144,6 +144,25 @@ function getAccountsDir() {
 
 function initAccounts() {
   const dir = getAccountsDir();
+
+  // Automatically cleanse any legacy "renepacho1" files from disk
+  try {
+    if (fs.existsSync(dir)) {
+      const existingFiles = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+      for (const f of existingFiles) {
+        const filePath = path.join(dir, f);
+        const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+        if (data.name && data.name.includes('renepacho1')) {
+          const u = (process.env.TIKTOK_USERNAME || '').trim();
+          const cleanName = u ? (u.includes('@') && u.includes('.com') ? `@${u.split('@')[0]}` : (u.startsWith('@') ? u : `@${u}`)) : 'TikTok Account';
+          data.name = cleanName;
+          data.username = cleanName;
+          fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+        }
+      }
+    }
+  } catch {}
+
   const marker = path.join(dir, '.migrated');
   if (fs.existsSync(marker)) return; // Already migrated once, do not recreate deleted accounts!
 
@@ -155,18 +174,20 @@ function initAccounts() {
         const raw = JSON.parse(fs.readFileSync(legacyFile, 'utf8'));
         if (Array.isArray(raw) && raw.length > 0) {
           const accId = 'acc_default';
+          const u = (process.env.TIKTOK_USERNAME || '').trim();
+          const cleanName = u ? (u.includes('@') && u.includes('.com') ? `@${u.split('@')[0]}` : (u.startsWith('@') ? u : `@${u}`)) : 'Account 1';
           const accData = {
             id: accId,
-            name: 'Account 1 (@renepacho1)',
-            username: '@renepacho1',
+            name: cleanName,
+            username: cleanName,
             cookies: raw,
-            postsCount: 1,
+            postsCount: 0,
             addedAt: new Date().toISOString(),
             lastUsed: new Date().toISOString(),
             status: 'active'
           };
           fs.writeFileSync(path.join(dir, `${accId}.json`), JSON.stringify(accData, null, 2), 'utf8');
-          console.log('✅ Migrated existing TikTok cookies to Account 1');
+          console.log(`✅ Migrated existing TikTok cookies to ${cleanName}`);
         }
       } catch (e) {
         console.warn('⚠️ Could not migrate legacy TikTok cookies:', e.message);
