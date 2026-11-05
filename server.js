@@ -823,7 +823,7 @@ app.get('/api/config', requireAuth, (req, res) => {
 });
 
 // Config — POST save all settings
-app.post('/api/config', requireAuth, (req, res) => {
+app.post('/api/config', requireAuth, async (req, res) => {
   const { postDelay: pd, proxyEnabled, proxyHost, proxyPort, proxyUsername, proxyPassword,
           telegramNotifyEnabled, telegramBotToken, telegramGroupId,
           safeModeEnabled: sm, postDelayMin: pdMin, postDelayMax: pdMax,
@@ -901,7 +901,7 @@ app.post('/api/config', requireAuth, (req, res) => {
   }
   try {
     const { closeBrowser } = require('./platforms/browser');
-    closeBrowser();
+    await closeBrowser();
   } catch {}
   if (telegramNotifyEnabled !== undefined)  updateEnvFile('TELEGRAM_NOTIFY_ENABLED',  telegramNotifyEnabled ? 'true' : 'false');
   if (telegramBotToken !== undefined)       updateEnvFile('TELEGRAM_BOT_TOKEN',       telegramBotToken);

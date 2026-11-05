@@ -406,10 +406,8 @@ async function ensureLogin(page, customCookies = null, accountName = "TikTok Acc
         console.warn('⚠️ CDP cookie set warning:', cdpErr.message);
       }
 
-      // Explicit Cookie HTTP header
-      const cookieHeader = raw.map(c => `${c.name}=${c.value}`).join('; ');
+      // Set language header (Cookies are natively managed by Puppeteer/Chrome cookie jar)
       await page.setExtraHTTPHeaders({
-        'Cookie': cookieHeader,
         'Accept-Language': 'en-US,en;q=0.9',
       }).catch(() => {});
 

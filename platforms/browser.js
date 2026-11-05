@@ -20,14 +20,21 @@ try {
 
 let browser = null;
 let lastUsed = 0;
+let currentProxyKey = '';
 const IDLE_TIMEOUT = 10 * 60 * 1000; // close after 10 min idle
 
 async function getBrowser() {
   if (!puppeteer) throw new Error('Puppeteer not installed. Run: npm install puppeteer');
 
+  const proxyKey = `${process.env.PROXYLAB_ENABLED}:${process.env.PROXYLAB_HOST}:${process.env.PROXYLAB_PORT}:${process.env.PROXYLAB_USERNAME}`;
+
   if (browser) {
     try {
-      if (browser.isConnected() && (Date.now() - lastUsed) < IDLE_TIMEOUT) {
+      if (currentProxyKey !== proxyKey) {
+        console.log('🔄 Proxy settings changed — restarting browser with new proxy...');
+        await browser.close().catch(() => {});
+        browser = null;
+      } else if (browser.isConnected() && (Date.now() - lastUsed) < IDLE_TIMEOUT) {
         lastUsed = Date.now();
         return browser;
       }
@@ -35,6 +42,8 @@ async function getBrowser() {
     try { await browser.close(); } catch {}
     browser = null;
   }
+
+  currentProxyKey = proxyKey;
 
   const args = [
     '--no-sandbox',
@@ -68,8 +77,8 @@ async function newPageWithProxy(browserInstance) {
   const page = await browserInstance.newPage();
   if (process.env.PROXYLAB_ENABLED === 'true' && process.env.PROXYLAB_USERNAME && process.env.PROXYLAB_PASSWORD) {
     await page.authenticate({
-      username: process.env.PROXYLAB_USERNAME,
-      password: process.env.PROXYLAB_PASSWORD,
+      username: (process.env.PROXYLAB_USERNAME || '').trim(),
+      password: (process.env.PROXYLAB_PASSWORD || '').trim(),
     });
   }
   return page;
