@@ -648,23 +648,23 @@ async function postComment(videoUrl, comment) {
     } else {
       console.log('⏳ Comments not detected as open, finding and clicking Comments icon/tab...');
       const openBtnCoords = await page.evaluate(() => {
-        // 1. data-e2e="comment-icon" next to video player
-        const icon = document.querySelector('[data-e2e="comment-icon"], [aria-label*="comment" i]');
-        if (icon) {
-          const r = icon.getBoundingClientRect();
-          if (r.width > 10 && r.height > 10) {
-            return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'comment-icon' };
-          }
-        }
-        // 2. Tab or button with text "Comments"
-        const els = Array.from(document.querySelectorAll('button, div, span, a'));
-        for (const el of els) {
+        // 1. Tab or button with text "Comments" in right column
+        const tabs = Array.from(document.querySelectorAll('[role="tab"], button, div, span, p, h2, h3, a'));
+        for (const el of tabs) {
           const t = (el.innerText || el.textContent || '').trim();
-          if (/^comments?(\s*\(.*\))?$/i.test(t)) {
+          if (t === 'Comments' || /^comments?(\s*\(.*\))?$/i.test(t)) {
             const r = el.getBoundingClientRect();
-            if (r.width > 20 && r.height > 10 && r.left > 500) {
+            if (r.width > 15 && r.height > 8 && r.left > 400) {
               return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'comments-tab' };
             }
+          }
+        }
+        // 2. Comment speech bubble icon next to video player
+        const icons = Array.from(document.querySelectorAll('[data-e2e*="comment"], [aria-label*="comment" i]'));
+        for (const icon of icons) {
+          const r = icon.getBoundingClientRect();
+          if (r.width > 10 && r.height > 10 && r.left < 1000) {
+            return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'comment-icon' };
           }
         }
         return null;
@@ -775,21 +775,37 @@ async function postComment(videoUrl, comment) {
     ];
 
     for (let attempt = 0; attempt < 8; attempt++) {
-      for (const sel of editorSelectors) {
-        const el = await page.$(sel);
-        if (el) {
-          const isVis = await page.evaluate(node => {
-            if (!node) return false;
-            const r = node.getBoundingClientRect();
-            return r.width > 20 && r.height > 10;
-          }, el);
-          if (isVis) {
-            commentInput = el;
-            break;
+      const handle = await page.evaluateHandle(() => {
+        const isVis = node => {
+          if (!node) return false;
+          const r = node.getBoundingClientRect();
+          const s = window.getComputedStyle(node);
+          return s.display !== 'none' && s.visibility !== 'hidden' && s.opacity !== '0' && r.width > 15 && r.height > 8;
+        };
+        const selectors = [
+          'div[data-e2e="comment-input"] [contenteditable]',
+          'div.DraftEditor-root [contenteditable]',
+          'div.public-DraftEditor-content',
+          '[contenteditable="true"]',
+          '[contenteditable="plaintext-only"]',
+          '[contenteditable]',
+          'div[role="textbox"]',
+          'textarea[placeholder*="comment" i]',
+          'input[placeholder*="comment" i]',
+        ];
+        for (const s of selectors) {
+          const nodes = Array.from(document.querySelectorAll(s));
+          for (const n of nodes) {
+            if (isVis(n)) return n;
           }
         }
+        return null;
+      });
+      const el = handle.asElement();
+      if (el) {
+        commentInput = el;
+        break;
       }
-      if (commentInput) break;
       await delay(1000);
     }
 
