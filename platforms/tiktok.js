@@ -84,6 +84,11 @@ function saveCookies(cookiesData) {
     throw new Error('Invalid cookies format — must be a JSON array of cookie objects from Cookie-Editor');
   }
 
+  const sessionCookie = parsed.find(c => c.name === 'sessionid' || c.name === 'sessionid_ss' || c.name === 'sid_guard' || c.name === 'sid_tt');
+  if (!sessionCookie) {
+    throw new Error('Missing "sessionid" cookie! Make sure you are logged in to TikTok in your browser before exporting cookies with Cookie-Editor. (Do NOT log out in your browser after exporting!)');
+  }
+
   const dir = path.dirname(getCookieFile());
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 
@@ -218,6 +223,11 @@ function saveAccount(name, cookiesData) {
   }
   if (!Array.isArray(parsed) || parsed.length === 0) {
     throw new Error('Invalid cookies format — must be a JSON array of cookie objects from Cookie-Editor');
+  }
+
+  const sessionCookie = parsed.find(c => c.name === 'sessionid' || c.name === 'sessionid_ss' || c.name === 'sid_guard' || c.name === 'sid_tt');
+  if (!sessionCookie) {
+    throw new Error('Missing "sessionid" cookie! Make sure you are logged in to TikTok in your browser before exporting cookies with Cookie-Editor. (Do NOT log out in your browser after exporting!)');
   }
 
   const dir = getAccountsDir();
@@ -364,20 +374,34 @@ async function ensureLogin(page, customCookies = null, accountName = "TikTok Acc
   const raw = customCookies || loadSavedCookies();
   if (Array.isArray(raw) && raw.length > 0) {
     try {
-      // Clear previous cookies & set directly via CDP
+      const sanitizedCookies = [];
+      for (const c of raw) {
+        if (!c.name || c.value === undefined) continue;
+        let domain = c.domain || '.tiktok.com';
+        if (domain.includes('tiktok.com')) domain = '.tiktok.com';
+        sanitizedCookies.push({
+          name: c.name,
+          value: String(c.value),
+          domain: domain,
+          path: c.path || '/',
+          secure: Boolean(c.secure),
+          httpOnly: Boolean(c.httpOnly),
+        });
+      }
+
+      // Native Puppeteer page.setCookie
+      try {
+        await page.setCookie(...sanitizedCookies);
+      } catch (scErr) {
+        console.warn('⚠️ page.setCookie warning:', scErr.message);
+      }
+
+      // Also set via CDP for direct network layer
       try {
         const client = await page.target().createCDPSession();
         await client.send('Network.clearBrowserCookies').catch(() => {});
-        const cdpCookies = raw.map(c => ({
-          name: c.name,
-          value: String(c.value),
-          domain: c.domain && c.domain.startsWith('.') ? c.domain : `.${c.domain || 'tiktok.com'}`,
-          path: c.path || '/',
-          secure: true,
-          httpOnly: Boolean(c.httpOnly),
-        }));
-        await client.send('Network.setCookies', { cookies: cdpCookies });
-        console.log(`🍪 Applied ${cdpCookies.length} TikTok cookies for [${accountName}] via CDP Network.setCookies`);
+        await client.send('Network.setCookies', { cookies: sanitizedCookies });
+        console.log(`🍪 Applied ${sanitizedCookies.length} TikTok cookies for [${accountName}] via Puppeteer & CDP`);
       } catch (cdpErr) {
         console.warn('⚠️ CDP cookie set warning:', cdpErr.message);
       }
@@ -386,7 +410,7 @@ async function ensureLogin(page, customCookies = null, accountName = "TikTok Acc
       const cookieHeader = raw.map(c => `${c.name}=${c.value}`).join('; ');
       await page.setExtraHTTPHeaders({
         'Cookie': cookieHeader,
-      });
+      }).catch(() => {});
 
       return true;
     } catch (cookieErr) {

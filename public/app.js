@@ -2186,6 +2186,12 @@ async function submitNewTikTokAccount() {
     return;
   }
 
+  const hasSession = Array.isArray(parsed) && parsed.some(c => c.name === 'sessionid' || c.name === 'sessionid_ss' || c.name === 'sid_guard' || c.name === 'sid_tt');
+  if (!hasSession) {
+    if (msgEl) msgEl.innerHTML = '<span style="color:#f87171;">⚠️ Missing "sessionid" cookie! You must be logged in to TikTok in your browser before exporting with Cookie-Editor. (Do NOT click Log Out after exporting!)</span>';
+    return;
+  }
+
   if (btn) { btn.disabled = true; btn.textContent = '⏳ Saving...'; }
 
   try {
