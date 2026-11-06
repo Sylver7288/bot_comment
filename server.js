@@ -462,7 +462,7 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
     const chosenKeyword = keywords[Math.floor(Math.random() * keywords.length)];
     if (!openai) {
       botWarn('⚠️ OpenAI API key not configured. Using fallback comment template.');
-      const fallbackText = useKeyword ? `Nice video! #${chosenKeyword}` : 'Great video!';
+      const fallbackText = useKeyword ? (isTikTok ? `Nice video! ${chosenKeyword}` : `Nice video! #${chosenKeyword}`) : 'Great video!';
       if (isTikTok) return fallbackText;
       let fallbackReply = useKeyword
         ? injectRandomEmojis(obfuscateKeyword(fallbackText, chosenKeyword), 'gambling')
@@ -472,9 +472,15 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
 
     let prompt;
     if (useKeyword) {
-      prompt = sourceType === 'comments'
-        ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the keyword #${chosenKeyword} at the end. Comment: "${input}"`
-        : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the keyword #${chosenKeyword} at the end. Post info: "${input}"`;
+      if (isTikTok) {
+        prompt = sourceType === 'comments'
+          ? `Respond casually and naturally to this TikTok comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the word "${chosenKeyword}" naturally at the end. Do NOT use any hashtag (#) symbol. Comment: "${input}"`
+          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this TikTok post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the word "${chosenKeyword}" naturally at the end. Do NOT use any hashtag (#) symbol. Post info: "${input}"`;
+      } else {
+        prompt = sourceType === 'comments'
+          ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the keyword #${chosenKeyword} at the end. Comment: "${input}"`
+          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the keyword #${chosenKeyword} at the end. Post info: "${input}"`;
+      }
     } else {
       prompt = sourceType === 'comments'
         ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Do NOT mention any brand, keyword, or hashtag. Comment: "${input}"`
@@ -487,19 +493,21 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
     });
 
     let reply = response.choices[0]?.message?.content?.trim();
-    if (!reply || reply.length < 3) reply = useKeyword ? `Nice content. #${chosenKeyword}` : 'Nice content!';
+    if (!reply || reply.length < 3) reply = useKeyword ? (isTikTok ? `Nice content. ${chosenKeyword}` : `Nice content. #${chosenKeyword}`) : 'Nice content!';
 
     // Strip wrapping quotes if AI outputted them
     reply = reply.replace(/^["'“](.*)["'”]$/, '$1').trim();
 
     // ── Special handling for TikTok ────────────────────────────
     // For TikTok, keep comments 100% natural and clean:
-    // 1. NO forced gambling emojis (🎰, 💸, 🎲, etc.)
-    // 2. NO letter-spacing or zero-width split characters inside keywords
-    // 3. NO markdown asterisks (**...**) which TikTok renders literally
+    // 1. NO hashtags (#) — write keyword as natural plain text
+    // 2. NO forced gambling emojis (🎰, 💸, 🎲, etc.)
+    // 3. NO letter-spacing or zero-width split characters inside keywords
+    // 4. NO markdown asterisks (**...**) which TikTok renders literally
     if (isTikTok) {
+      reply = reply.replace(/#/g, '').trim();
       if (useKeyword && chosenKeyword && !reply.toLowerCase().includes(chosenKeyword.toLowerCase())) {
-        reply = `${reply} #${chosenKeyword}`;
+        reply = `${reply} ${chosenKeyword}`;
       }
       return reply;
     }
@@ -515,7 +523,7 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
     botError(`❌ AI generation error: ${err.message}`);
     const isTikTok = (platformName || '').toLowerCase().includes('tiktok');
     if (isTikTok) {
-      return useKeyword ? `Nice video! #${keywords[0]}` : 'Great video!';
+      return useKeyword ? `Nice video! ${keywords[0]}` : 'Great video!';
     }
     return useKeyword
       ? injectRandomEmojis(obfuscateKeyword(`Nice content. #${keywords[0]}`, keywords[0]), 'gambling')
