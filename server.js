@@ -474,12 +474,12 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
     if (useKeyword) {
       if (isTikTok) {
         prompt = sourceType === 'comments'
-          ? `Respond casually and naturally to this TikTok comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the word "${chosenKeyword}" naturally at the end. Do NOT use any hashtag (#) symbol. Comment: "${input}"`
-          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this TikTok post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the word "${chosenKeyword}" naturally at the end. Do NOT use any hashtag (#) symbol. Post info: "${input}"`;
+          ? `Respond casually and naturally to this TikTok comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the exact word "${chosenKeyword}" naturally at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Do NOT use any hashtag (#) symbol. Comment: "${input}"`
+          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this TikTok post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the exact word "${chosenKeyword}" naturally at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Do NOT use any hashtag (#) symbol. Post info: "${input}"`;
       } else {
         prompt = sourceType === 'comments'
-          ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the keyword #${chosenKeyword} at the end. Comment: "${input}"`
-          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the keyword #${chosenKeyword} at the end. Post info: "${input}"`;
+          ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the keyword #${chosenKeyword} at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Comment: "${input}"`
+          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the keyword #${chosenKeyword} at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Post info: "${input}"`;
       }
     } else {
       prompt = sourceType === 'comments'
@@ -504,6 +504,11 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
     // 2. NO forced gambling emojis (🎰, 💸, 🎲, etc.)
     // 3. NO letter-spacing or zero-width split characters inside keywords
     // 4. NO markdown asterisks (**...**) which TikTok renders literally
+    // 5. Ensure "S777" is not misread by AI as "5777"
+    if (chosenKeyword && chosenKeyword.toUpperCase().includes('S777')) {
+      reply = reply.replace(/\b5777\b/gi, 'S777');
+    }
+
     if (isTikTok) {
       reply = reply.replace(/#/g, '').trim();
       if (useKeyword && chosenKeyword && !reply.toLowerCase().includes(chosenKeyword.toLowerCase())) {
