@@ -47,10 +47,6 @@ function getCookieStatus() {
 
     // Check age in hours (file mtime)
     const ageHours = (Date.now() - stat.mtimeMs) / (1000 * 60 * 60);
-    // TikTok web sessions typically invalidate after 36-48h
-    if (ageHours > 48) {
-      isExpired = true;
-    }
 
     // If runtime verification caught a login/signup popup, mark as expired
     if (lastCookieError) {
@@ -66,7 +62,7 @@ function getCookieStatus() {
       expiresAt: expiresAt,
       updatedAt: stat.mtime.toISOString(),
       ageHours: Math.round(ageHours * 10) / 10,
-      reason: lastCookieError || (isExpired ? 'Session age exceeded 48 hours' : 'Active'),
+      reason: lastCookieError || (isExpired ? 'Session expired' : 'Active'),
     };
   } catch (err) {
     return { hasCookies: true, valid: false, expired: true, cookieCount: 0, message: err.message };
@@ -310,6 +306,25 @@ function deleteAccount(id) {
     }
   } catch {}
   return deleted;
+}
+
+function refreshAccountCookies(accountId, freshCookies) {
+  if (!accountId || !Array.isArray(freshCookies) || freshCookies.length === 0) return;
+  const dir = getAccountsDir();
+  const file = path.join(dir, `${accountId}.json`);
+  if (fs.existsSync(file)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+      data.cookies = freshCookies;
+      data.lastUsed = new Date().toISOString();
+      data.postsCount = (data.postsCount || 0) + 1;
+      fs.writeFileSync(file, JSON.stringify(data, null, 2), 'utf8');
+      console.log(`🍪 Auto-refreshed session cookies for [${data.name || accountId}]`);
+    } catch {}
+  }
+  try {
+    fs.writeFileSync(getCookieFile(), JSON.stringify(freshCookies, null, 2), 'utf8');
+  } catch {}
 }
 
 let currentAccountIndex = 0;
@@ -1049,6 +1064,16 @@ async function postComment(videoUrl, comment) {
     }
 
     console.log(`✅ TikTok comment verified: submitted successfully! (Appears in list: ${postStatus.foundInList})`);
+
+    // Auto-refresh cookies on disk so session stays active and does not require daily manual re-pasting
+    try {
+      const freshCookies = await page.cookies();
+      const hasSession = freshCookies.find(c => c.name === 'sessionid' || c.name === 'sessionid_ss');
+      if (hasSession && account && account.id) {
+        refreshAccountCookies(account.id, freshCookies);
+      }
+    } catch {}
+
     return { success: true, platform: 'tiktok', url: finalPostUrl, verifiedInList: postStatus.foundInList };
   } catch (err) {
     try {
