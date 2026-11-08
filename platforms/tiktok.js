@@ -593,6 +593,21 @@ async function postComment(videoUrl, comment) {
   const browser = await getBrowser();
   let page      = await newPageWithProxy(browser);
 
+  // Monitor TikTok internal comment publishing API to detect shadowbans, reviews, and anti-bot flags
+  let publishResponseData = null;
+  page.on('response', async res => {
+    try {
+      const u = res.url();
+      if (u.includes('/comment/publish') || u.includes('/aweme/v1/comment/publish')) {
+        const json = await res.json().catch(() => null);
+        if (json) {
+          publishResponseData = json;
+          console.log(`📡 [TikTok API] Comment publish response: status_code=${json.status_code}, status_msg="${json.status_msg || 'ok'}"`);
+        }
+      }
+    } catch {}
+  });
+
   try {
     await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
     const ua = process.platform === 'win32'
@@ -1049,7 +1064,6 @@ async function postComment(videoUrl, comment) {
       // 1. data-e2e="comment-post"
       const e2eBtn = document.querySelector('[data-e2e="comment-post"]');
       if (isVisible(e2eBtn)) {
-        try { e2eBtn.click(); } catch {}
         const r = e2eBtn.getBoundingClientRect();
         return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'data-e2e' };
       }
@@ -1062,7 +1076,6 @@ async function postComment(videoUrl, comment) {
           if (isVisible(el)) {
             const r = el.getBoundingClientRect();
             if (r.left > 400 && r.top > 300) {
-              try { el.click(); } catch {}
               return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'text-post' };
             }
           }
@@ -1073,7 +1086,6 @@ async function postComment(videoUrl, comment) {
       const postSvgs = document.querySelectorAll('[data-e2e*="post"], button[type="submit"]');
       for (const btn of postSvgs) {
         if (isVisible(btn)) {
-          try { btn.click(); } catch {}
           const r = btn.getBoundingClientRect();
           return { x: r.left + r.width / 2, y: r.top + r.height / 2, type: 'button-submit' };
         }
@@ -1084,18 +1096,24 @@ async function postComment(videoUrl, comment) {
 
     if (postCoords) {
       console.log(`🚀 Clicking Post button at (${Math.round(postCoords.x)}, ${Math.round(postCoords.y)}) [${postCoords.type}]`);
+      await page.mouse.move(postCoords.x, postCoords.y, { steps: 8 }).catch(() => {});
+      await delay(150);
       await page.mouse.click(postCoords.x, postCoords.y);
     } else {
       console.log('⌨️ Post button not found, pressing Enter key...');
       await page.keyboard.press('Enter');
     }
 
-    // Also send Enter key as confirmation
-    await delay(1000);
-    await page.keyboard.press('Enter').catch(() => {});
-
-    // Wait for comment to submit and render
+    // Wait for comment to submit and API response to return
     await delay(6000);
+
+    if (publishResponseData) {
+      console.log(`📡 [TikTok API Summary] status_code: ${publishResponseData.status_code}, status_msg: "${publishResponseData.status_msg || 'ok'}"`);
+      if (publishResponseData.status_code !== 0 && publishResponseData.status_code !== undefined) {
+        console.warn(`⚠️ TikTok API rejection detected: code ${publishResponseData.status_code} — ${publishResponseData.status_msg || 'Filtered by TikTok'}`);
+        throw new Error(`TikTok server rejected comment: [Code ${publishResponseData.status_code}] ${publishResponseData.status_msg || 'Comment held for review or restricted by creator settings'}`);
+      }
+    }
 
     // Always take a proof screenshot of the post attempt
     const finalPostUrl = page.url();
