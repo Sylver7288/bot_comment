@@ -1683,7 +1683,7 @@ app.post('/api/tiktok/cookies', requireAuth, (req, res) => {
       try {
         const u = (process.env.TIKTOK_USERNAME || '').trim();
         const cleanName = u ? (u.includes('@') && u.includes('.com') ? `@${u.split('@')[0]}` : (u.startsWith('@') ? u : `@${u}`)) : 'TikTok Account';
-        platformTikTok.saveAccount(cleanName, cookies);
+        platformTikTok.saveAccount(cleanName, cookies, 'acc_default');
       } catch {}
     }
     botOk(`🍪 TikTok cookies updated via admin panel (${status.cookieCount} cookies, valid: ${status.valid})`);

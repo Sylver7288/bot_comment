@@ -231,7 +231,7 @@ function getAccountsList() {
   return list;
 }
 
-function saveAccount(name, cookiesData) {
+function saveAccount(name, cookiesData, targetId = null) {
   let parsed;
   if (typeof cookiesData === 'string') {
     parsed = JSON.parse(cookiesData.trim());
@@ -248,9 +248,22 @@ function saveAccount(name, cookiesData) {
   }
 
   const dir = getAccountsDir();
-  const id = 'acc_' + Date.now();
-  const existingCount = fs.readdirSync(dir).filter(f => f.endsWith('.json')).length;
-  const cleanName = (name || '').trim() || `Account ${existingCount + 1}`;
+  const existingFiles = fs.readdirSync(dir).filter(f => f.endsWith('.json'));
+  const cleanName = (name || '').trim() || (existingFiles.length === 0 ? 'TikTok Account' : `Account ${existingFiles.length + 1}`);
+
+  let id = targetId;
+  if (!id) {
+    // If only 1 account exists, update it rather than creating a duplicate ghost account
+    if (existingFiles.length === 1) {
+      id = existingFiles[0].replace('.json', '');
+    } else {
+      const existing = existingFiles.map(f => {
+        try { return JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8')); } catch { return null; }
+      }).filter(Boolean);
+      const match = existing.find(a => a.name === cleanName || a.id === 'acc_default');
+      id = match ? match.id : ('acc_' + Date.now());
+    }
+  }
 
   const accData = {
     id,
@@ -269,6 +282,8 @@ function saveAccount(name, cookiesData) {
   try {
     fs.writeFileSync(getCookieFile(), JSON.stringify(parsed, null, 2), 'utf8');
   } catch {}
+
+  lastCookieError = null;
 
   return {
     id,
@@ -341,20 +356,24 @@ function getNextAccount() {
     return null;
   }
 
-  const accounts = [];
+  const allAccounts = [];
   for (const f of files) {
     try {
       const acc = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
       if (acc && Array.isArray(acc.cookies) && acc.cookies.length > 0) {
-        accounts.push(acc);
+        allAccounts.push(acc);
       }
     } catch {}
   }
 
-  if (accounts.length === 0) return null;
+  if (allAccounts.length === 0) return null;
 
-  const account = accounts[currentAccountIndex % accounts.length];
-  currentAccountIndex = (currentAccountIndex + 1) % accounts.length;
+  // Prioritize active (non-expired) accounts
+  const activeAccounts = allAccounts.filter(a => a.status !== 'expired');
+  const pool = activeAccounts.length > 0 ? activeAccounts : allAccounts;
+
+  const account = pool[currentAccountIndex % pool.length];
+  currentAccountIndex = (currentAccountIndex + 1) % pool.length;
   return account;
 }
 
@@ -574,7 +593,7 @@ async function postComment(videoUrl, comment) {
     const account = getNextAccount();
     const cookiesToUse = account ? account.cookies : loadSavedCookies();
     const accountName = account ? account.name : 'TikTok Account';
-    console.log(`🎵 [TikTok Rotation] Selected account: "${accountName}"`);
+    console.log(`🎵 [TikTok Rotation] Selected account: "${accountName}" (${cookiesToUse ? cookiesToUse.length : 0} cookies, ID: ${account ? account.id : 'legacy'})`);
 
     const loggedIn = await ensureLogin(page, cookiesToUse, accountName);
     if (!loggedIn) throw new Error('TikTok login failed — check credentials or cookies');
@@ -877,7 +896,10 @@ async function postComment(videoUrl, comment) {
       });
       if (loginPrompt) {
         lastCookieError = loginPrompt;
-        throw new Error(`${loginPrompt}. Please update cookies in dashboard Settings.`);
+        if (account && account.id) {
+          recordAccountExpired(account.id, loginPrompt);
+        }
+        throw new Error(`${loginPrompt} on account [${accountName}]. Please update cookies in dashboard Settings.`);
       }
 
       // Check for age restriction or comments off
