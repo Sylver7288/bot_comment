@@ -595,7 +595,10 @@ async function postComment(videoUrl, comment) {
 
   try {
     await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+    const ua = process.platform === 'win32'
+      ? 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+      : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+    await page.setUserAgent(ua);
 
     const account = getNextAccount();
     const cookiesToUse = account ? account.cookies : loadSavedCookies();
@@ -613,6 +616,7 @@ async function postComment(videoUrl, comment) {
     } else {
       targetVideoUrl = `${targetVideoUrl}?is_from_webapp=1&sender_device=pc`;
     }
+    const cleanVideoUrl = targetVideoUrl;
 
     console.log('🌐 Establishing session with TikTok gateway...');
     // Warm up session on root domain so Akamai sets connection tokens cleanly
@@ -657,7 +661,7 @@ async function postComment(videoUrl, comment) {
         const freshBrowser = await getBrowser();
         page = await newPageWithProxy(freshBrowser);
         await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
-        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+        await page.setUserAgent(ua);
         await ensureLogin(page, cookiesToUse, accountName);
         await page.goto('https://www.tiktok.com/', { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
         await delay(1500);
