@@ -1199,13 +1199,17 @@ async function testProxyConfig() {
 async function rotateSessionInput() {
   const input = document.getElementById('proxyUsernameInput');
   if (!input) return;
-  const current = input.value.trim();
+  let current = input.value.trim();
   const rand = 's' + Math.random().toString(36).substring(2, 8);
   if (current.includes('session-')) {
-    input.value = current.replace(/session-[^_]+/, `session-${rand}`);
+    current = current.replace(/session-[^_]+/, `session-${rand}`);
   } else {
-    input.value = (current ? current + '_' : '') + `session-${rand}_life-120`;
+    current = (current ? current + '_' : '') + `session-${rand}`;
   }
+  if (!current.includes('_life-')) {
+    current += '_life-120';
+  }
+  input.value = current;
   toast(`🎲 Generated fresh session IP: ${rand}. Saving & testing...`, 'info');
   await saveProxyConfig();
   await testProxyConfig();

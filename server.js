@@ -926,9 +926,13 @@ app.post('/api/config', requireAuth, async (req, res) => {
     PROXYLAB_PORT = String(proxyPort);
   }
   if (proxyUsername !== undefined) {
-    updateEnvFile('PROXYLAB_USERNAME', proxyUsername);
-    process.env.PROXYLAB_USERNAME = proxyUsername;
-    PROXYLAB_USERNAME = proxyUsername;
+    let cleanUname = proxyUsername.trim();
+    if (cleanUname.includes('session-') && !cleanUname.includes('_life-')) {
+      cleanUname += '_life-120';
+    }
+    updateEnvFile('PROXYLAB_USERNAME', cleanUname);
+    process.env.PROXYLAB_USERNAME = cleanUname;
+    PROXYLAB_USERNAME = cleanUname;
   }
   if (proxyPassword !== undefined) {
     updateEnvFile('PROXYLAB_PASSWORD', proxyPassword);

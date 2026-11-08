@@ -76,8 +76,13 @@ async function getBrowser() {
 async function newPageWithProxy(browserInstance) {
   const page = await browserInstance.newPage();
   if (process.env.PROXYLAB_ENABLED === 'true' && process.env.PROXYLAB_USERNAME && process.env.PROXYLAB_PASSWORD) {
+    let uname = (process.env.PROXYLAB_USERNAME || '').trim();
+    if (uname.includes('session-') && !uname.includes('_life-')) {
+      uname += '_life-120';
+      process.env.PROXYLAB_USERNAME = uname;
+    }
     await page.authenticate({
-      username: (process.env.PROXYLAB_USERNAME || '').trim(),
+      username: uname,
       password: (process.env.PROXYLAB_PASSWORD || '').trim(),
     });
   }
@@ -96,7 +101,12 @@ function rotateProxySession() {
   if (!currentUsername.includes('session-')) return null;
 
   const randSuffix = 's' + Math.random().toString(36).substring(2, 8);
-  const updatedUsername = currentUsername.replace(/session-[^_]+/, `session-${randSuffix}`);
+  let updatedUsername;
+  if (currentUsername.includes('_life-')) {
+    updatedUsername = currentUsername.replace(/session-[^_]+/, `session-${randSuffix}`);
+  } else {
+    updatedUsername = currentUsername.replace(/session-[^_]+/, `session-${randSuffix}`) + '_life-120';
+  }
   
   process.env.PROXYLAB_USERNAME = updatedUsername;
 
