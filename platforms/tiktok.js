@@ -584,7 +584,7 @@ async function postComment(videoUrl, comment) {
   if (!isConfigured()) throw new Error('TikTok credentials not configured (TIKTOK_USERNAME / TIKTOK_PASSWORD)');
 
   const browser = await getBrowser();
-  const page    = await newPageWithProxy(browser);
+  let page      = await newPageWithProxy(browser);
 
   try {
     await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
@@ -601,23 +601,49 @@ async function postComment(videoUrl, comment) {
     // Clean URL: strip tracking/mobile query params (e.g. ?q=... from share links)
     const cleanVideoUrl = videoUrl.split('?')[0];
     console.log(`🌐 Loading video: ${cleanVideoUrl} (original: ${videoUrl})`);
-    const pageResponse = await page.goto(cleanVideoUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(err => {
+    let pageResponse = await page.goto(cleanVideoUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(err => {
       console.warn('⚠️ page.goto warning:', err.message);
       return null;
     });
 
     // Check if Chrome failed or connection was blocked by TikTok WAF / Proxy
-    const currentUrl = page.url();
+    let currentUrl = page.url();
+    let isBlocked = false;
     if (currentUrl.startsWith('chrome-error://')) {
       const pageText = await page.evaluate(() => document.body ? document.body.innerText : '');
       if (pageText.includes('HTTP ERROR 403') || pageText.includes('Access to www.tiktok.com was denied') || pageText.includes('denied')) {
-        throw new Error('TikTok blocked proxy IP (HTTP 403: Access Denied). TikTok is banned in India — if your proxy is set to India (IN), please change your proxy country to US, SG, or GB in Settings!');
+        isBlocked = true;
+      } else {
+        throw new Error(`Chrome connection error: ${pageText.slice(0, 150)}`);
       }
-      throw new Error(`Chrome connection error: ${pageText.slice(0, 150)}`);
+    } else if (pageResponse && pageResponse.status() === 403) {
+      isBlocked = true;
     }
 
-    if (pageResponse && pageResponse.status() === 403) {
-      throw new Error('TikTok returned HTTP 403 Forbidden. Your proxy IP is blocked or located in a restricted region (e.g. India). Please change proxy country to US, SG, or GB in Settings.');
+    if (isBlocked) {
+      const { rotateProxySession, closeBrowser } = require('./browser');
+      const hasSession = (process.env.PROXYLAB_USERNAME || '').includes('session-');
+      if (hasSession) {
+        console.log('🛡️ TikTok WAF blocked current proxy IP (HTTP 403). Auto-rotating to a fresh residential IP...');
+        rotateProxySession();
+        await closeBrowser();
+        const freshBrowser = await getBrowser();
+        page = await newPageWithProxy(freshBrowser);
+        await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
+        await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+        await ensureLogin(page, cookiesToUse, accountName);
+        pageResponse = await page.goto(cleanVideoUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(err => {
+          console.warn('⚠️ page.goto retry warning:', err.message);
+          return null;
+        });
+        currentUrl = page.url();
+        if (currentUrl.startsWith('chrome-error://') || (pageResponse && pageResponse.status() === 403)) {
+          throw new Error('TikTok blocked proxy IP (HTTP 403: Access Denied). Please check your proxy country or account balance in LumiProxy.');
+        }
+        console.log('✅ Fresh proxy IP connected to TikTok successfully!');
+      } else {
+        throw new Error('TikTok blocked proxy IP (HTTP 403: Access Denied). TikTok is banned in India — if your proxy is set to India (IN), please change your proxy country to US, SG, or GB in Settings!');
+      }
     }
 
     // Wait up to 20s for TikTok page to hydrate over residential proxies

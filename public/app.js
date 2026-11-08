@@ -878,6 +878,7 @@ function setupSettingsTab() {
   const saveProxy = document.getElementById('saveProxyBtn');
   if (saveProxy) saveProxy.addEventListener('click', saveProxyConfig);
   document.getElementById('testProxyBtn')?.addEventListener('click', testProxyConfig);
+  document.getElementById('newSessionBtn')?.addEventListener('click', rotateSessionInput);
 
   // Telegram toggle
   const tgToggle = document.getElementById('telegramNotifyToggle');
@@ -1167,10 +1168,18 @@ async function testProxyConfig() {
     });
     const data = await res.json();
     if (data.ok) {
-      toast(`✅ Proxy connected! IP: ${data.ip}`, 'success');
-      if (resSpan) {
-        resSpan.style.color = '#10b981';
-        resSpan.textContent = `✅ Connected! IP: ${data.ip}`;
+      if (data.warning || data.tiktokOk === false) {
+        toast(`⚠️ ${data.message}`, 'warning');
+        if (resSpan) {
+          resSpan.style.color = '#f59e0b';
+          resSpan.textContent = `⚠️ IP: ${data.ip} (${data.country || 'OK'}) — TikTok blocked on this IP. Click "New Session IP" to get a clean IP.`;
+        }
+      } else {
+        toast(`✅ Proxy connected! IP: ${data.ip}`, 'success');
+        if (resSpan) {
+          resSpan.style.color = '#10b981';
+          resSpan.textContent = `✅ Connected! IP: ${data.ip}${data.country ? ' (' + data.country + ')' : ''} — TikTok verified`;
+        }
       }
     } else {
       toast(`❌ Proxy failed: ${data.message}`, 'error');
@@ -1185,6 +1194,21 @@ async function testProxyConfig() {
     btn.disabled = false;
     btn.textContent = '🔌 Test Proxy Connection';
   }
+}
+
+async function rotateSessionInput() {
+  const input = document.getElementById('proxyUsernameInput');
+  if (!input) return;
+  const current = input.value.trim();
+  const rand = 's' + Math.random().toString(36).substring(2, 8);
+  if (current.includes('session-')) {
+    input.value = current.replace(/session-[a-zA-Z0-9_-]+/, `session-${rand}`);
+  } else {
+    input.value = (current ? current + '_' : '') + `session-${rand}_life-120`;
+  }
+  toast(`🎲 Generated fresh session IP: ${rand}. Saving & testing...`, 'info');
+  await saveProxyConfig();
+  await testProxyConfig();
 }
 
 async function saveTelegramConfig() {

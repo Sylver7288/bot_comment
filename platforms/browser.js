@@ -91,8 +91,35 @@ async function closeBrowser() {
   }
 }
 
+function rotateProxySession() {
+  const currentUsername = process.env.PROXYLAB_USERNAME || '';
+  if (!currentUsername.includes('session-')) return null;
+
+  const randSuffix = 's' + Math.random().toString(36).substring(2, 8);
+  const updatedUsername = currentUsername.replace(/session-[a-zA-Z0-9_-]+/, `session-${randSuffix}`);
+  
+  process.env.PROXYLAB_USERNAME = updatedUsername;
+
+  // Persist to .env if present
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const envPath = path.join(__dirname, '..', '.env');
+    if (fs.existsSync(envPath)) {
+      let content = fs.readFileSync(envPath, 'utf8');
+      if (content.includes('PROXYLAB_USERNAME=')) {
+        content = content.replace(/PROXYLAB_USERNAME=.*/g, `PROXYLAB_USERNAME=${updatedUsername}`);
+        fs.writeFileSync(envPath, content, 'utf8');
+      }
+    }
+  } catch {}
+
+  console.log(`🔄 Rotated proxy session: new username is "${updatedUsername}"`);
+  return updatedUsername;
+}
+
 function isPuppeteerAvailable() {
   return puppeteer !== null;
 }
 
-module.exports = { getBrowser, newPageWithProxy, closeBrowser, isPuppeteerAvailable };
+module.exports = { getBrowser, newPageWithProxy, closeBrowser, rotateProxySession, isPuppeteerAvailable };
