@@ -432,11 +432,18 @@ async function ensureLogin(page, customCookies = null, accountName = "TikTok Acc
       const sanitizedCookies = [];
       for (const c of raw) {
         if (!c.name || c.value === undefined) continue;
+        // Skip IP-bound Akamai tokens so TikTok generates fresh valid ones matching the proxy IP
+        if (c.name === 'msToken' || c.name === 'tt_chain_token') continue;
         let domain = c.domain || '.tiktok.com';
         if (domain.includes('tiktok.com')) domain = '.tiktok.com';
+        let val = String(c.value);
+        // Normalize any country/region codes to avoid geo-blocks
+        if (/country|region|loc/i.test(c.name) && val.toLowerCase() === 'in') {
+          val = 'us';
+        }
         sanitizedCookies.push({
           name: c.name,
-          value: String(c.value),
+          value: val,
           domain: domain,
           path: c.path || '/',
           secure: Boolean(c.secure),
@@ -598,10 +605,24 @@ async function postComment(videoUrl, comment) {
     const loggedIn = await ensureLogin(page, cookiesToUse, accountName);
     if (!loggedIn) throw new Error('TikTok login failed — check credentials or cookies');
 
-    // Clean URL: strip tracking/mobile query params (e.g. ?q=... from share links)
-    const cleanVideoUrl = videoUrl.split('?')[0];
-    console.log(`🌐 Loading video: ${cleanVideoUrl} (original: ${videoUrl})`);
-    let pageResponse = await page.goto(cleanVideoUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(err => {
+    // Format video URL with desktop webapp parameters
+    let targetVideoUrl = videoUrl.trim();
+    if (targetVideoUrl.includes('?')) {
+      const base = targetVideoUrl.split('?')[0];
+      targetVideoUrl = `${base}?is_from_webapp=1&sender_device=pc`;
+    } else {
+      targetVideoUrl = `${targetVideoUrl}?is_from_webapp=1&sender_device=pc`;
+    }
+
+    console.log('🌐 Establishing session with TikTok gateway...');
+    // Warm up session on root domain so Akamai sets connection tokens cleanly
+    await page.goto('https://www.tiktok.com/', { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(err => {
+      console.warn('⚠️ TikTok gateway warmup warning:', err.message);
+    });
+    await delay(1500);
+
+    console.log(`🌐 Loading video: ${targetVideoUrl}`);
+    let pageResponse = await page.goto(targetVideoUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(err => {
       console.warn('⚠️ page.goto warning:', err.message);
       return null;
     });
@@ -634,7 +655,9 @@ async function postComment(videoUrl, comment) {
         await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
         await ensureLogin(page, cookiesToUse, accountName);
-        pageResponse = await page.goto(cleanVideoUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(err => {
+        await page.goto('https://www.tiktok.com/', { waitUntil: 'domcontentloaded', timeout: 25000 }).catch(() => {});
+        await delay(1500);
+        pageResponse = await page.goto(targetVideoUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(err => {
           console.warn('⚠️ page.goto retry warning:', err.message);
           return null;
         });

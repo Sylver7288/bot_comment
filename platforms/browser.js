@@ -50,7 +50,6 @@ async function getBrowser() {
     '--disable-setuid-sandbox',
     '--disable-dev-shm-usage',
     '--disable-blink-features=AutomationControlled',
-    '--disable-web-security',
     '--window-size=1280,800',
   ];
 
