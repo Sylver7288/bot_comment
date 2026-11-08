@@ -743,12 +743,19 @@ async function postComment(videoUrl, comment) {
 
     // Check if video is unavailable or comments are turned off
     const videoStatus = await page.evaluate(() => {
+      const hasVideo = !!document.querySelector('video');
       const text = document.body ? document.body.innerText || '' : '';
-      if (/comments are turned off|comments have been disabled/i.test(text)) return 'Comments are turned off for this video';
-      if (/video currently unavailable|video is private/i.test(text)) return 'Video is unavailable or private';
+      if (/comments are turned off|comments have been disabled/i.test(text)) {
+        return 'Comments are turned off for this video';
+      }
+      // Only declare video unavailable if the video player itself is missing
+      if (!hasVideo && /video currently unavailable|video is private/i.test(text)) {
+        return 'Video is unavailable or private';
+      }
       return null;
     });
     if (videoStatus) {
+      await page.screenshot({ path: path.join(__dirname, '..', 'public', 'tiktok_last_post.png'), fullPage: false }).catch(() => {});
       throw new Error(`TikTok: ${videoStatus}`);
     }
 
