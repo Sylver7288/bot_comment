@@ -304,21 +304,21 @@
                 </div>
 
                 <div class="form-group">
-                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-                    <label class="form-label" style="margin:0;">🎯 Video URL(s) <span class="badge badge-purple" style="font-size:11px;font-weight:normal;">Bulk Multi-Line Supported</span></label>
-                    <button type="button" class="btn btn-ghost btn-sm" id="btnImportTrending" onclick="importTrendingToPostForm()" style="font-size:12px;color:var(--purple);padding:3px 10px;border:1px dashed var(--purple);border-radius:6px;cursor:pointer;">
-                      ⚡ Auto-Fill Trending Links
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;gap:8px;">
+                    <label class="form-label" style="margin:0;font-weight:600;">🎯 Target Video URLs</label>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btnImportTrending" onclick="importTrendingToPostForm()" style="font-size:11px;padding:3px 10px;border-radius:6px;font-weight:500;">
+                      ⚡ Trending Videos
                     </button>
                   </div>
                   <div class="input-row" style="align-items:flex-start;">
-                    <textarea id="videoUrlInput" class="form-input" rows="4" style="resize:vertical;font-family:monospace;font-size:13px;" placeholder="Paste one or multiple video URLs (one per line):&#10;https://www.tiktok.com/@creator/video/123...&#10;https://www.tiktok.com/@creator/video/456..."></textarea>
+                    <textarea id="videoUrlInput" class="form-input" rows="4" style="resize:vertical;font-family:monospace;font-size:13px;" placeholder="Paste video URLs (one per line):&#10;https://www.tiktok.com/@creator/video/123..."></textarea>
                     <button class="btn btn-ghost btn-icon" id="pasteBtn" title="Paste from clipboard" style="margin-top:2px;">📋</button>
                   </div>
-                  <p class="form-hint" style="margin-top:6px;">⏱️ <strong>Anti-Ban Delay:</strong> 2 minutes between each video automatically.</p>
+                  <p class="form-hint" style="margin-top:6px;">Supports single or batch URLs. Automatic 2-minute safety delay between videos.</p>
                 </div>
 
                 <div class="form-group">
-                  <label class="form-label">🏷️ Active Keywords</label>
+                  <label class="form-label">🏷️ Active Campaign Keywords</label>
                   <div id="keywordBadges" class="keyword-badges"></div>
                 </div>
 
@@ -742,10 +742,10 @@
             <!-- Keywords -->
             <div class="card">
               <div class="card-header">
-                <h3 class="card-title">🏷️ Spam Keywords</h3>
+                <h3 class="card-title">🏷️ Campaign Keywords</h3>
               </div>
               <div class="card-body">
-                <p class="form-hint">One keyword per line. Bot picks one randomly per comment.</p>
+                <p class="form-hint">One keyword per line. The AI weaves these keywords into natural audience reactions.</p>
                 <textarea id="keywordsTextarea" class="form-textarea" rows="6" placeholder="KEYWORD1&#10;KEYWORD2&#10;KEYWORD3"></textarea>
                 <button class="btn btn-primary mt-12" id="saveKeywordsBtn">💾 Save Keywords</button>
               </div>
