@@ -1389,6 +1389,7 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
     language    = 'Indonesian',
     countryCode = 'ID',
     platforms: selectedPlatforms = ['youtube'],
+    customComment = '',
   } = req.body;
 
   const targetUrls = Array.isArray(urls) && urls.length > 0
@@ -1462,8 +1463,11 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
               continue;
             }
             try {
-              botLog(`🔄 Generating ${language} comment for ${platform.icon} ${platform.name}...`);
-              const comment = await generateReply(input, sourceType, language, true, platform.name);
+              let comment = (customComment || '').trim();
+              if (!comment) {
+                botLog(`🔄 Generating ${language} comment for ${platform.icon} ${platform.name}...`);
+                comment = await generateReply(input, sourceType, language, true, platform.name);
+              }
               botLog(`💬 Comment text: "${comment}"`);
               botLog(`📤 Posting to ${platform.icon} ${platform.name}...`);
               const postRes = await platform.postComment(currentUrl, comment);

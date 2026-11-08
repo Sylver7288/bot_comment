@@ -75,6 +75,9 @@ async function getBrowser() {
     launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
   } else {
     const candidates = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      process.env.LOCALAPPDATA ? path.join(process.env.LOCALAPPDATA, 'Google', 'Chrome', 'Application', 'chrome.exe') : '',
       '/root/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
       '/home/ubuntu/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
       '/usr/bin/google-chrome',
