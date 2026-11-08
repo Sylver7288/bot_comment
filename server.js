@@ -473,18 +473,32 @@ async function generateReply(input, sourceType, language = 'Indonesian', useKeyw
     let prompt;
     if (useKeyword) {
       if (isTikTok) {
-        prompt = sourceType === 'comments'
-          ? `Respond casually and naturally to this TikTok comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the exact word "${chosenKeyword}" naturally at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Do NOT use any hashtag (#) symbol. Comment: "${input}"`
-          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this TikTok post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the exact word "${chosenKeyword}" naturally at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Do NOT use any hashtag (#) symbol. Post info: "${input}"`;
+        prompt = `You are an authentic, everyday TikTok viewer leaving a quick reaction comment on a short video clip. Write ONLY in ${language} language.
+CRITICAL RULES:
+1. Maximum length: 3 to 8 words ONLY (just like real TikTok users comment).
+2. Casual, natural, everyday viewer style with 1-2 friendly emojis (e.g. ❤️, 🔥, 👌, 😂).
+3. Do NOT write formal literary poetry or long complex sentences.
+4. Naturally include "${chosenKeyword}" in the phrase without shouting.
+5. NO hashtags (#). NO quotes.
+Video context: "${input}"`;
       } else {
         prompt = sourceType === 'comments'
           ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the keyword #${chosenKeyword} at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Comment: "${input}"`
           : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the keyword #${chosenKeyword} at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Post info: "${input}"`;
       }
     } else {
-      prompt = sourceType === 'comments'
-        ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Do NOT mention any brand, keyword, or hashtag. Comment: "${input}"`
-        : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. No brand names or hashtags at all. Post info: "${input}"`;
+      if (isTikTok) {
+        prompt = `You are an authentic, everyday TikTok viewer leaving a quick reaction comment on a short video clip. Write ONLY in ${language} language.
+CRITICAL RULES:
+1. Maximum length: 3 to 7 words ONLY.
+2. Casual, friendly tone with 1-2 emojis (e.g. ❤️, 🔥, 👌).
+3. NO hashtags, NO promotional words, NO quotes.
+Video context: "${input}"`;
+      } else {
+        prompt = sourceType === 'comments'
+          ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Do NOT mention any brand, keyword, or hashtag. Comment: "${input}"`
+          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. No brand names or hashtags at all. Post info: "${input}"`;
+      }
     }
 
     const response = await openai.chat.completions.create({
@@ -1389,7 +1403,6 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
     language    = 'Indonesian',
     countryCode = 'ID',
     platforms: selectedPlatforms = ['youtube'],
-    customComment = '',
   } = req.body;
 
   const targetUrls = Array.isArray(urls) && urls.length > 0
@@ -1463,11 +1476,8 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
               continue;
             }
             try {
-              let comment = (customComment || '').trim();
-              if (!comment) {
-                botLog(`🔄 Generating ${language} comment for ${platform.icon} ${platform.name}...`);
-                comment = await generateReply(input, sourceType, language, true, platform.name);
-              }
+              botLog(`🔄 Generating ${language} comment for ${platform.icon} ${platform.name}...`);
+              const comment = await generateReply(input, sourceType, language, true, platform.name);
               botLog(`💬 Comment text: "${comment}"`);
               botLog(`📤 Posting to ${platform.icon} ${platform.name}...`);
               const postRes = await platform.postComment(currentUrl, comment);

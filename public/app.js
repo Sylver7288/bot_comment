@@ -474,7 +474,6 @@ async function handlePostComment() {
   const urls = rawInput.split('\n').map(u => u.trim()).filter(Boolean);
   const country = getSelectedCountry('postCountrySelect');
   const platforms = Array.from(selectedPlatforms);
-  const customComment = document.getElementById('customCommentInput')?.value.trim() || '';
 
   if (urls.length === 0) { toast('Please enter at least one video URL', 'warn'); return; }
   if (platforms.length === 0) { toast('Select at least one platform', 'warn'); return; }
@@ -482,11 +481,10 @@ async function handlePostComment() {
   try {
     const res  = await api('/api/post-comment', 'POST', {
       urls,
-      url:           urls[0],
-      countryCode:   country.code,
-      language:      country.language,
+      url:         urls[0],
+      countryCode: country.code,
+      language:    country.language,
       platforms,
-      customComment,
     });
     const data = await res.json();
     if (!res.ok) toast(`❌ ${data.error || 'Failed'}`, 'error');
