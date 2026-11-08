@@ -643,8 +643,12 @@ async function postComment(videoUrl, comment) {
     }
 
     if (isBlocked) {
+      // Capture screenshot of the blocked page so user can inspect it at /tiktok_last_post.png
+      await page.screenshot({ path: path.join(__dirname, '..', 'public', 'tiktok_last_post.png'), fullPage: false }).catch(() => {});
+
       const { rotateProxySession, closeBrowser } = require('./browser');
-      const hasSession = (process.env.PROXYLAB_USERNAME || '').includes('session-');
+      const isProxyEnabled = process.env.PROXYLAB_ENABLED === 'true';
+      const hasSession = isProxyEnabled && (process.env.PROXYLAB_USERNAME || '').includes('session-');
       if (hasSession) {
         const newUname = rotateProxySession();
         console.log(`🛡️ TikTok WAF blocked proxy IP. Auto-rotated to fresh session: ${newUname}`);
@@ -663,19 +667,23 @@ async function postComment(videoUrl, comment) {
         });
         currentUrl = page.url();
         if (currentUrl.startsWith('chrome-error://') || (pageResponse && pageResponse.status() === 403)) {
+          await page.screenshot({ path: path.join(__dirname, '..', 'public', 'tiktok_last_post.png'), fullPage: false }).catch(() => {});
           let retryDetail = pageResponse ? `HTTP ${pageResponse.status()}` : '';
           if (currentUrl.startsWith('chrome-error://')) {
             const bodyTxt = await page.evaluate(() => document.body ? document.body.innerText.replace(/\s+/g, ' ') : '').catch(() => '');
             retryDetail = `Chrome: ${bodyTxt.slice(0, 120)}`;
           }
-          throw new Error(`TikTok blocked proxy IP (${retryDetail || failureDetail}). Please click 'New Session IP' in Settings or verify your LumiProxy residential traffic balance.`);
+          throw new Error(`TikTok blocked proxy IP (${retryDetail || failureDetail}). View screenshot at /tiktok_last_post.png — check LumiProxy residential balance or click 'New Session IP'.`);
         }
         console.log('✅ Fresh proxy IP connected to TikTok successfully!');
+      } else if (isProxyEnabled) {
+        throw new Error(`TikTok blocked proxy IP (${failureDetail}). View screenshot at /tiktok_last_post.png — please switch proxy country in Settings!`);
       } else {
-        throw new Error(`TikTok blocked proxy IP (${failureDetail}). TikTok is banned in India — if your proxy is set to India (IN), please change your proxy country to US, SG, or GB in Settings!`);
+        throw new Error(`TikTok blocked direct connection from server (${failureDetail}). TikTok blocks AWS/datacenter server IPs directly — please re-enable your residential proxy in Settings! View screenshot at /tiktok_last_post.png`);
       }
     } else if (currentUrl.startsWith('chrome-error://')) {
-      throw new Error(`TikTok connection error (${failureDetail}). Check proxy settings in dashboard.`);
+      await page.screenshot({ path: path.join(__dirname, '..', 'public', 'tiktok_last_post.png'), fullPage: false }).catch(() => {});
+      throw new Error(`TikTok connection error (${failureDetail}). View screenshot at /tiktok_last_post.png`);
     }
 
     // Wait up to 20s for TikTok page to hydrate over residential proxies
