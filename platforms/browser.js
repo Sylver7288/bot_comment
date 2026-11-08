@@ -96,7 +96,7 @@ function rotateProxySession() {
   if (!currentUsername.includes('session-')) return null;
 
   const randSuffix = 's' + Math.random().toString(36).substring(2, 8);
-  const updatedUsername = currentUsername.replace(/session-[a-zA-Z0-9_-]+/, `session-${randSuffix}`);
+  const updatedUsername = currentUsername.replace(/session-[^_]+/, `session-${randSuffix}`);
   
   process.env.PROXYLAB_USERNAME = updatedUsername;
 

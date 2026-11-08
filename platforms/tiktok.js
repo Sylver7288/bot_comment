@@ -624,9 +624,10 @@ async function postComment(videoUrl, comment) {
       const { rotateProxySession, closeBrowser } = require('./browser');
       const hasSession = (process.env.PROXYLAB_USERNAME || '').includes('session-');
       if (hasSession) {
-        console.log('🛡️ TikTok WAF blocked current proxy IP (HTTP 403). Auto-rotating to a fresh residential IP...');
-        rotateProxySession();
+        const newUname = rotateProxySession();
+        console.log(`🛡️ TikTok WAF blocked proxy IP (HTTP 403). Auto-rotated to fresh session: ${newUname}`);
         await closeBrowser();
+        await delay(1200);
         const freshBrowser = await getBrowser();
         page = await newPageWithProxy(freshBrowser);
         await page.setViewport({ width: 1440, height: 900 }).catch(() => {});

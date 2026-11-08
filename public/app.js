@@ -1202,7 +1202,7 @@ async function rotateSessionInput() {
   const current = input.value.trim();
   const rand = 's' + Math.random().toString(36).substring(2, 8);
   if (current.includes('session-')) {
-    input.value = current.replace(/session-[a-zA-Z0-9_-]+/, `session-${rand}`);
+    input.value = current.replace(/session-[^_]+/, `session-${rand}`);
   } else {
     input.value = (current ? current + '_' : '') + `session-${rand}_life-120`;
   }
