@@ -1,6 +1,8 @@
 // ============================================================
 // platforms/browser.js — Shared Puppeteer browser manager
 // ============================================================
+const fs = require('fs');
+const path = require('path');
 let puppeteer;
 
 try {
@@ -61,12 +63,36 @@ async function getBrowser() {
   }
 
   const isHeadless = process.env.PUPPETEER_HEADLESS !== 'false';
-  browser = await puppeteer.launch({
+  const launchOptions = {
     headless: isHeadless,
     args,
     ignoreDefaultArgs: ['--enable-automation'],
     defaultViewport: { width: 1280, height: 800 },
-  });
+  };
+
+  // Find Chrome executable across root cache, user cache, and system binaries
+  if (process.env.PUPPETEER_EXECUTABLE_PATH && fs.existsSync(process.env.PUPPETEER_EXECUTABLE_PATH)) {
+    launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+  } else {
+    const candidates = [
+      '/root/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
+      '/home/ubuntu/.cache/puppeteer/chrome/linux-127.0.6533.88/chrome-linux64/chrome',
+      '/usr/bin/google-chrome',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+    ];
+    for (const c of candidates) {
+      try {
+        if (fs.existsSync(c)) {
+          launchOptions.executablePath = c;
+          break;
+        }
+      } catch {}
+    }
+  }
+
+  browser = await puppeteer.launch(launchOptions);
 
   lastUsed = Date.now();
   return browser;
