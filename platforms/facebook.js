@@ -185,19 +185,24 @@ function getNextAccount() {
     return null;
   }
 
-  const accounts = [];
+  const allAccounts = [];
+  const activeAccounts = [];
   for (const f of files) {
     try {
       const acc = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
       if (acc && Array.isArray(acc.cookies) && acc.cookies.length > 0) {
-        accounts.push(acc);
+        allAccounts.push(acc);
+        if (acc.status !== 'expired') {
+          activeAccounts.push(acc);
+        }
       }
     } catch {}
   }
 
-  if (accounts.length === 0) return null;
-  const account = accounts[currentAccountIndex % accounts.length];
-  currentAccountIndex = (currentAccountIndex + 1) % accounts.length;
+  const pool = activeAccounts.length > 0 ? activeAccounts : allAccounts;
+  if (pool.length === 0) return null;
+  const account = pool[currentAccountIndex % pool.length];
+  currentAccountIndex = (currentAccountIndex + 1) % pool.length;
   return account;
 }
 
@@ -293,45 +298,57 @@ async function ensureLogin(page, customCookies = null, accountName = 'Facebook A
     const client = await page.target().createCDPSession();
     await client.send('Network.clearBrowserCookies').catch(() => {});
 
-    const sanitized = [];
+    // 1. Prepare cookies for Puppeteer native page.setCookie (clean domain without leading dot)
+    const puppeteerCookies = [];
     for (const c of raw) {
       if (!c.name || c.value === undefined) continue;
-      let domain = c.domain || '.facebook.com';
-      if (!domain.startsWith('.')) domain = '.' + domain;
-      if (domain === '.www.facebook.com') domain = '.facebook.com';
+      let domain = c.domain ? c.domain.replace(/^\./, '') : 'facebook.com';
+      if (domain === 'www.facebook.com') domain = 'facebook.com';
 
-      sanitized.push({
+      puppeteerCookies.push({
         name: c.name,
         value: String(c.value),
-        url: 'https://www.facebook.com',
         domain: domain,
         path: c.path || '/',
-        secure: Boolean(c.secure),
+        secure: c.secure !== undefined ? Boolean(c.secure) : true,
         httpOnly: Boolean(c.httpOnly),
         sameSite: c.sameSite === 'no_restriction' ? 'None' : (c.sameSite === 'strict' ? 'Strict' : 'Lax'),
       });
     }
 
-    // Set via CDP directly on network layer
     try {
-      await client.send('Network.setCookies', { cookies: sanitized });
-    } catch (cdpErr) {
-      console.warn('⚠️ CDP setCookies warning:', cdpErr.message);
-    }
-
-    // Also populate Puppeteer native cookie jar
-    try {
-      const puppeteerCookies = sanitized.map(c => {
-        const copy = { ...c };
-        delete copy.url;
-        return copy;
-      });
       await page.setCookie(...puppeteerCookies);
     } catch (scErr) {
       console.warn('⚠️ page.setCookie warning:', scErr.message);
     }
 
-    console.log(`🍪 Applied ${sanitized.length} Facebook cookies for [${accountName}] via CDP & Puppeteer`);
+    // 2. Prepare cookies for CDP Network.setCookies (using url, without ambiguous domain)
+    const cdpCookies = puppeteerCookies.map(c => ({
+      name: c.name,
+      value: c.value,
+      url: 'https://www.facebook.com',
+      path: c.path,
+      secure: c.secure,
+      httpOnly: c.httpOnly,
+      sameSite: c.sameSite,
+    }));
+
+    try {
+      await client.send('Network.setCookies', { cookies: cdpCookies });
+    } catch (cdpErr) {
+      console.warn('⚠️ CDP setCookies warning:', cdpErr.message);
+    }
+
+    // 3. Verify cookies in Chrome
+    const verified = await page.cookies('https://www.facebook.com');
+    const cookieNames = verified.map(c => c.name);
+    console.log(`🍪 Applied & verified ${verified.length} Facebook cookies for [${accountName}] (${cookieNames.slice(0, 8).join(', ')})`);
+
+    const hasCUser = cookieNames.includes('c_user');
+    const hasXs = cookieNames.includes('xs');
+    if (!hasCUser && !hasXs) {
+      console.warn(`⚠️ Warning: Neither "c_user" nor "xs" found in verified cookies for [${accountName}].`);
+    }
 
     await page.setExtraHTTPHeaders({
       'Accept-Language': 'en-US,en;q=0.9',
