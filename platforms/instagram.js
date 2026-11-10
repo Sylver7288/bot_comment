@@ -4,7 +4,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
-const { getBrowser, newPageWithProxy, isPuppeteerAvailable } = require('./browser');
+const { getBrowser, newPageWithProxy, isPuppeteerAvailable, getDefaultUserAgent } = require('./browser');
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -176,18 +176,55 @@ function isConfigured() {
 async function ensureLogin(page, account) {
   const cookies = Array.isArray(account?.cookies) ? account.cookies : [];
   if (cookies.length > 0) {
-    const sanitized = cookies.map(c => ({
-      name: c.name,
-      value: String(c.value),
-      domain: c.domain ? (c.domain.startsWith('.') ? c.domain : `.${c.domain}`) : '.instagram.com',
-      path: c.path || '/',
-      httpOnly: Boolean(c.httpOnly),
-      secure: Boolean(c.secure),
-      sameSite: c.sameSite === 'no_restriction' ? 'None' : (c.sameSite === 'strict' ? 'Strict' : 'Lax'),
-    }));
-    await page.setCookie(...sanitized);
-    await page.goto('https://www.instagram.com/', { waitUntil: 'networkidle2', timeout: 35000 });
-    const loggedIn = await page.evaluate(() => !document.querySelector('a[href*="/accounts/login"]'));
+    try {
+      const client = await page.target().createCDPSession();
+      await client.send('Network.clearBrowserCookies').catch(() => {});
+      const cdpCookies = cookies.map(c => ({
+        name: c.name,
+        value: String(c.value),
+        domain: c.domain ? (c.domain.startsWith('.') ? c.domain : `.${c.domain}`) : '.instagram.com',
+        path: c.path || '/',
+        httpOnly: Boolean(c.httpOnly),
+        secure: Boolean(c.secure),
+      }));
+      await client.send('Network.setCookies', { cookies: cdpCookies });
+      console.log(`🍪 Applied ${cdpCookies.length} Instagram cookies for [${account?.name || 'Account'}] via CDP`);
+    } catch (cdpErr) {
+      console.warn('⚠️ CDP cookie set failed, falling back to page.setCookie:', cdpErr.message);
+      const sanitized = cookies.map(c => ({
+        name: c.name,
+        value: String(c.value),
+        domain: c.domain ? (c.domain.startsWith('.') ? c.domain : `.${c.domain}`) : '.instagram.com',
+        path: c.path || '/',
+        httpOnly: Boolean(c.httpOnly),
+        secure: Boolean(c.secure),
+        sameSite: c.sameSite === 'no_restriction' ? 'None' : (c.sameSite === 'strict' ? 'Strict' : 'Lax'),
+      }));
+      await page.setCookie(...sanitized).catch(() => {});
+    }
+
+    await page.goto('https://www.instagram.com/', { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => {});
+    await delay(2500);
+
+    // Dismiss notifications/cookie dialogs if any
+    try {
+      await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+        for (const b of btns) {
+          const t = (b.innerText || b.textContent || '').trim().toLowerCase();
+          if (t === 'not now' || t === 'allow all cookies' || t === 'accept all' || t === 'decline optional cookies') {
+            b.click();
+            break;
+          }
+        }
+      });
+    } catch {}
+
+    const loggedIn = await page.evaluate(() => {
+      const hasLoginInput = !!document.querySelector('input[name="username"]');
+      const hasProfileIcon = !!document.querySelector('svg[aria-label="Profile"], svg[aria-label="Home"], a[href*="/direct/inbox"], img[data-testid="user-avatar"]');
+      return !hasLoginInput || hasProfileIcon;
+    });
     if (loggedIn) return true;
   }
 
@@ -196,7 +233,8 @@ async function ensureLogin(page, account) {
   const password = account?.password || process.env.INSTAGRAM_PASSWORD;
   if (!username || !password) return false;
 
-  await page.goto('https://www.instagram.com/accounts/login/', { waitUntil: 'networkidle2', timeout: 35000 });
+  console.log(`🔑 Attempting Instagram password login for @${username}...`);
+  await page.goto('https://www.instagram.com/accounts/login/', { waitUntil: 'domcontentloaded', timeout: 35000 });
   await delay(2000);
 
   await page.waitForSelector('input[name="username"]', { timeout: 10000 });
@@ -230,56 +268,110 @@ async function postComment(postUrl, comment) {
   const page = await newPageWithProxy(browser);
 
   try {
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
+    await page.setUserAgent(getDefaultUserAgent());
 
     const loggedIn = await ensureLogin(page, activeAccount);
     if (!loggedIn) throw new Error(`Instagram login failed for account "${activeAccount?.name || 'default'}"`);
 
-    await page.goto(postUrl, { waitUntil: 'networkidle2', timeout: 35000 });
+    // Clean URL
+    let cleanUrl = postUrl.trim();
+    if (cleanUrl.includes('instagram.com') && cleanUrl.includes('?')) {
+      cleanUrl = cleanUrl.split('?')[0];
+    }
+
+    console.log(`🌐 Loading Instagram post: ${cleanUrl}`);
+    await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 35000 }).catch(() => {});
     await delay(3000);
 
-    const textareaSelectors = [
-      'textarea[placeholder*="comment" i]',
-      'textarea[placeholder*="Comment" i]',
+    // Dismiss cookie/notification modals
+    try {
+      await page.evaluate(() => {
+        const btns = Array.from(document.querySelectorAll('button, [role="button"]'));
+        for (const b of btns) {
+          const t = (b.innerText || b.textContent || '').trim().toLowerCase();
+          if (t === 'not now' || t === 'allow all cookies' || t === 'accept all' || t === 'decline optional cookies') {
+            b.click();
+            break;
+          }
+        }
+      });
+    } catch {}
+
+    const commentInputSelectors = [
       'textarea[aria-label*="comment" i]',
+      'textarea[placeholder*="comment" i]',
+      'form textarea',
+      'div[contenteditable="true"][role="textbox"]',
+      'div[contenteditable="true"][aria-label*="comment" i]',
+      'div[contenteditable="true"]',
       'textarea',
     ];
 
-    let textarea = null;
-    for (const sel of textareaSelectors) {
-      textarea = await page.$(sel);
-      if (textarea) break;
+    let inputEl = null;
+    for (const sel of commentInputSelectors) {
+      inputEl = await page.$(sel);
+      if (inputEl) break;
     }
 
-    if (!textarea) {
-      const commentIcon = await page.$('[aria-label*="Comment" i]');
+    if (!inputEl) {
+      console.log('🔍 Comment box not immediately visible — clicking Comment icon to open drawer...');
+      const commentIcon = await page.$('[aria-label*="Comment" i], svg[aria-label*="Comment" i]');
       if (commentIcon) {
         await commentIcon.click();
-        await delay(1500);
-        for (const sel of textareaSelectors) {
-          textarea = await page.$(sel);
-          if (textarea) break;
+        await delay(2000);
+        for (const sel of commentInputSelectors) {
+          inputEl = await page.$(sel);
+          if (inputEl) break;
         }
       }
     }
 
-    if (!textarea) throw new Error('Comment textarea not found on Instagram post');
+    if (!inputEl) throw new Error('Comment box not found on Instagram post (post may have comments turned off)');
 
-    await textarea.click();
-    await delay(500);
-    await textarea.type(comment, { delay: 40 });
-    await delay(600);
+    console.log(`💬 Typing Instagram comment: "${comment.substring(0, 45)}..."`);
+    await inputEl.click();
+    await delay(400);
+    await page.keyboard.type(comment, { delay: 35 });
+    await delay(800);
 
-    const postBtn = await page.$('button[type="submit"]:not([disabled])');
-    if (postBtn) {
-      await postBtn.click();
-    } else {
+    // Submit via Post button or Enter
+    const submitted = await page.evaluate(() => {
+      const btns = Array.from(document.querySelectorAll('form button, div[role="button"]'));
+      const postBtn = btns.find(b => {
+        const t = (b.innerText || b.textContent || b.getAttribute('aria-label') || '').trim().toLowerCase();
+        return t === 'post' || t === 'submit' || t === 'send';
+      });
+      if (postBtn && !postBtn.disabled) {
+        postBtn.click();
+        return true;
+      }
+      return false;
+    });
+
+    if (!submitted) {
+      console.log('🚀 Pressing Enter to submit comment...');
       await page.keyboard.press('Enter');
     }
 
-    await delay(2500);
+    await delay(4000);
+
+    // Proof screenshot
+    try {
+      const proofPath = path.join(__dirname, '..', 'public', 'instagram_last_post.png');
+      await page.screenshot({ path: proofPath });
+      console.log('📸 Saved Instagram proof screenshot to public/instagram_last_post.png');
+    } catch {}
+
     recordAccountPost(activeAccount?.id);
-    return { success: true, platform: 'instagram', account: activeAccount?.name };
+    return { success: true, platform: 'instagram', account: activeAccount?.name, url: cleanUrl };
+  } catch (err) {
+    try {
+      const errPath = path.join(__dirname, '..', 'public', 'instagram_last_error.png');
+      await page.screenshot({ path: errPath });
+      console.warn('📸 Saved Instagram error screenshot to public/instagram_last_error.png');
+    } catch {}
+    throw err;
   } finally {
     await page.close();
   }

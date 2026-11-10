@@ -177,7 +177,10 @@ function getClient(account = null) {
 }
 
 function extractTweetId(url) {
-  const match = url.match(/status\/(\d+)/);
+  if (!url) return null;
+  const str = String(url).trim();
+  if (/^\d{15,25}$/.test(str)) return str;
+  const match = str.match(/status\/(\d+)/);
   return match ? match[1] : null;
 }
 

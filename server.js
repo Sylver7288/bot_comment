@@ -1500,10 +1500,21 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
               botOk(`✅ ${platform.icon} ${platform.name} posted: "${comment}"${urlSuffix}`);
               if (platformId === 'tiktok') {
                 botLog(`📸 View proof screenshot at: https://botcomment.ink/tiktok_last_post.png`);
+              } else if (platformId === 'facebook') {
+                botLog(`📸 View proof screenshot at: https://botcomment.ink/facebook_last_post.png`);
+              } else if (platformId === 'instagram') {
+                botLog(`📸 View proof screenshot at: https://botcomment.ink/instagram_last_post.png`);
               }
               io.emit('platformDone', { platform: platformId, success: [platformId], comment, failed: [] });
             } catch (err) {
               botError(`❌ ${platform.icon} ${platform.name} failed: ${err.message}`);
+              if (platformId === 'tiktok') {
+                botLog(`📸 Debug screenshot at: https://botcomment.ink/tiktok_last_error.png`);
+              } else if (platformId === 'facebook') {
+                botLog(`📸 Debug screenshot at: https://botcomment.ink/facebook_last_error.png`);
+              } else if (platformId === 'instagram') {
+                botLog(`📸 Debug screenshot at: https://botcomment.ink/instagram_last_error.png`);
+              }
               io.emit('platformDone', { platform: platformId, success: [], failed: [err.message] });
             }
           }

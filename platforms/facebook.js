@@ -5,7 +5,7 @@ require('dotenv').config();
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const { getBrowser, newPageWithProxy, isPuppeteerAvailable } = require('./browser');
+const { getBrowser, newPageWithProxy, isPuppeteerAvailable, getDefaultUserAgent } = require('./browser');
 
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -293,22 +293,30 @@ async function ensureLogin(page, customCookies = null, accountName = 'Facebook A
     const client = await page.target().createCDPSession();
     await client.send('Network.clearBrowserCookies').catch(() => {});
 
-    const cdpCookies = raw.map(c => ({
-      name: c.name,
-      value: String(c.value),
-      domain: c.domain && c.domain.startsWith('.') ? c.domain : `.${c.domain || 'facebook.com'}`,
-      path: c.path || '/',
-      secure: Boolean(c.secure),
-      httpOnly: Boolean(c.httpOnly),
-    }));
+    const cdpCookies = raw.map(c => {
+      let domain = c.domain || '.facebook.com';
+      if (!domain.startsWith('.')) domain = '.' + domain;
+      if (domain === '.www.facebook.com') domain = '.facebook.com';
+      return {
+        name: c.name,
+        value: String(c.value),
+        domain,
+        path: c.path || '/',
+        secure: Boolean(c.secure),
+        httpOnly: Boolean(c.httpOnly),
+      };
+    });
 
     await client.send('Network.setCookies', { cookies: cdpCookies });
     console.log(`🍪 Applied ${cdpCookies.length} Facebook cookies for [${accountName}] via CDP`);
 
+    // Also populate Puppeteer cookie store
+    await page.setCookie(...cdpCookies).catch(() => {});
+
     const cookieHeader = raw.map(c => `${c.name}=${c.value}`).join('; ');
     await page.setExtraHTTPHeaders({
       'Cookie': cookieHeader,
-    });
+    }).catch(() => {});
 
     return true;
   } catch (err) {
@@ -343,6 +351,87 @@ async function dismissOverlays(page) {
   } catch {}
 }
 
+async function resolveDirectVideoUrl(page, rawUrl) {
+  let cleanUrl = rawUrl.trim();
+  if (cleanUrl.includes('facebook.com') && cleanUrl.includes('?')) {
+    const [base, query] = cleanUrl.split('?');
+    if (cleanUrl.includes('/search')) {
+      cleanUrl = rawUrl.trim();
+    } else if (base.includes('/watch')) {
+      const vParam = new URLSearchParams(query).get('v');
+      cleanUrl = vParam ? `${base}?v=${vParam}` : base;
+    } else {
+      cleanUrl = base;
+    }
+  }
+
+  const trimmed = cleanUrl.replace(/\/+$/, '');
+  const isHubOrFeed = (
+    trimmed.endsWith('/watch') ||
+    trimmed.endsWith('/reel') ||
+    trimmed.endsWith('/reels') ||
+    trimmed.includes('/watch/live') ||
+    trimmed.includes('/watch/shows') ||
+    trimmed.includes('/watch/topic') ||
+    trimmed.includes('/search')
+  );
+
+  if (!isHubOrFeed) {
+    return cleanUrl;
+  }
+
+  console.log(`🔍 Hub / Feed URL detected: ${cleanUrl} — extracting top active video...`);
+  await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
+  await delay(3000);
+  await dismissOverlays(page);
+
+  await page.evaluate(() => window.scrollBy(0, 800));
+  await delay(2500);
+
+  const topVideoUrl = await page.evaluate(() => {
+    function getFbId(url) {
+      if (!url) return null;
+      const v = url.match(/[?&]v=(\d+)/);
+      if (v) return v[1];
+      const r = url.match(/\/(?:reel|reels|videos)\/(\d+)/);
+      if (r) return r[1];
+      const m = url.match(/\/(\d{8,20})/);
+      if (m) return m[1];
+      return null;
+    }
+
+    const allLinks = Array.from(document.querySelectorAll('a[href]'));
+    for (const a of allLinks) {
+      const href = a.href || '';
+      if (
+        href.includes('/search') ||
+        href.includes('/topic/') ||
+        href.includes('/shows/') ||
+        href.includes('/live/') ||
+        href.includes('/hashtag/')
+      ) continue;
+
+      const vidId = getFbId(href);
+      if (vidId) {
+        if (href.includes('/reel')) return `https://www.facebook.com/reel/${vidId}`;
+        return `https://www.facebook.com/watch/?v=${vidId}`;
+      }
+
+      if (href.includes('/watch/?v=') || href.includes('/watch?v=')) {
+        return href.split('&')[0];
+      }
+    }
+    return null;
+  });
+
+  if (topVideoUrl) {
+    console.log(`🎬 Auto-resolved feed URL to direct video: ${topVideoUrl}`);
+    return topVideoUrl;
+  }
+
+  throw new Error(`The link "${rawUrl}" is a Facebook feed/category page with no playable video found. Please paste a direct Facebook Reel or Video link (e.g. facebook.com/reel/123456789 or facebook.com/watch/?v=123456789).`);
+}
+
 async function postComment(postUrl, comment) {
   if (!isConfigured()) throw new Error('Facebook not configured. Please paste session cookies in Settings.');
 
@@ -357,23 +446,12 @@ async function postComment(postUrl, comment) {
 
   try {
     await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+    await page.setUserAgent(getDefaultUserAgent());
 
     await ensureLogin(page, cookiesToUse, accountName);
 
-    // Clean URL: strip tracking/app params
-    let cleanUrl = postUrl.trim();
-    if (cleanUrl.includes('facebook.com') && cleanUrl.includes('?')) {
-      const [base, query] = cleanUrl.split('?');
-      if (cleanUrl.includes('/search')) {
-        cleanUrl = postUrl.trim();
-      } else if (base.includes('/watch/')) {
-        const vParam = new URLSearchParams(query).get('v');
-        cleanUrl = vParam ? `${base}?v=${vParam}` : cleanUrl;
-      } else {
-        cleanUrl = base;
-      }
-    }
+    // Auto-resolve feed / category / search URLs to direct video
+    let cleanUrl = await resolveDirectVideoUrl(page, postUrl);
 
     console.log(`🌐 Loading Facebook post: ${cleanUrl}`);
     await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
@@ -388,28 +466,18 @@ async function postComment(postUrl, comment) {
     await dismissOverlays(page);
     await delay(1000);
 
-    // If it's a search page (e.g. from Trending topics), navigate into top video in results
-    if (cleanUrl.includes('/search')) {
-      console.log('🔍 Facebook search page detected — finding top video in results...');
-      const topVideoUrl = await page.evaluate(() => {
-        const links = Array.from(document.querySelectorAll('a[href*="/watch/?v="], a[href*="/reel/"], a[href*="/videos/"]'));
-        for (const l of links) {
-          if (l.href && !l.href.includes('/search')) return l.href;
-        }
-        return null;
-      });
-
-      if (topVideoUrl) {
-        console.log(`🎬 Navigating into top video: ${topVideoUrl}`);
-        cleanUrl = topVideoUrl.split('&')[0];
-        await page.goto(cleanUrl, { waitUntil: 'domcontentloaded', timeout: 45000 }).catch(() => {});
-        await page.waitForFunction(() => {
-          const text = document.body ? document.body.innerText : '';
-          return text.length > 50 || document.querySelectorAll('div[role="textbox"], [contenteditable="true"]').length > 0;
-        }, { timeout: 20000 }).catch(() => {});
-        await delay(2000);
-        await dismissOverlays(page);
+    // Check if redirected to login or checkpoint
+    const loginWall = await page.evaluate(() => {
+      const u = window.location.href;
+      if (u.includes('/login') || u.includes('/checkpoint')) return 'redirected to login/checkpoint';
+      const body = document.body ? document.body.innerText.toLowerCase() : '';
+      if (body.includes('you must log in to continue') || body.includes('log in to facebook')) {
+        return 'login prompt overlay';
       }
+      return null;
+    });
+    if (loginWall) {
+      throw new Error(`Facebook session not active (${loginWall}). Please refresh your cookies from facebook.com.`);
     }
 
     // If it's a Reel or Watch page where comments are in a side drawer, try clicking Comment icon
@@ -589,7 +657,7 @@ async function getTrending(regionCode = 'US', maxResults = 20) {
       browser = await getBrowser();
       page = await newPageWithProxy(browser);
       await page.setViewport({ width: 1440, height: 900 }).catch(() => {});
-      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36');
+      await page.setUserAgent(getDefaultUserAgent());
 
       await ensureLogin(page).catch(() => {});
 
