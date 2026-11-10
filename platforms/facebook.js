@@ -293,29 +293,48 @@ async function ensureLogin(page, customCookies = null, accountName = 'Facebook A
     const client = await page.target().createCDPSession();
     await client.send('Network.clearBrowserCookies').catch(() => {});
 
-    const cdpCookies = raw.map(c => {
+    const sanitized = [];
+    for (const c of raw) {
+      if (!c.name || c.value === undefined) continue;
       let domain = c.domain || '.facebook.com';
       if (!domain.startsWith('.')) domain = '.' + domain;
       if (domain === '.www.facebook.com') domain = '.facebook.com';
-      return {
+
+      sanitized.push({
         name: c.name,
         value: String(c.value),
-        domain,
+        url: 'https://www.facebook.com',
+        domain: domain,
         path: c.path || '/',
         secure: Boolean(c.secure),
         httpOnly: Boolean(c.httpOnly),
-      };
-    });
+        sameSite: c.sameSite === 'no_restriction' ? 'None' : (c.sameSite === 'strict' ? 'Strict' : 'Lax'),
+      });
+    }
 
-    await client.send('Network.setCookies', { cookies: cdpCookies });
-    console.log(`🍪 Applied ${cdpCookies.length} Facebook cookies for [${accountName}] via CDP`);
+    // Set via CDP directly on network layer
+    try {
+      await client.send('Network.setCookies', { cookies: sanitized });
+    } catch (cdpErr) {
+      console.warn('⚠️ CDP setCookies warning:', cdpErr.message);
+    }
 
-    // Also populate Puppeteer cookie store
-    await page.setCookie(...cdpCookies).catch(() => {});
+    // Also populate Puppeteer native cookie jar
+    try {
+      const puppeteerCookies = sanitized.map(c => {
+        const copy = { ...c };
+        delete copy.url;
+        return copy;
+      });
+      await page.setCookie(...puppeteerCookies);
+    } catch (scErr) {
+      console.warn('⚠️ page.setCookie warning:', scErr.message);
+    }
 
-    const cookieHeader = raw.map(c => `${c.name}=${c.value}`).join('; ');
+    console.log(`🍪 Applied ${sanitized.length} Facebook cookies for [${accountName}] via CDP & Puppeteer`);
+
     await page.setExtraHTTPHeaders({
-      'Cookie': cookieHeader,
+      'Accept-Language': 'en-US,en;q=0.9',
     }).catch(() => {});
 
     return true;
@@ -328,7 +347,13 @@ async function ensureLogin(page, customCookies = null, accountName = 'Facebook A
 async function dismissOverlays(page) {
   try {
     await page.evaluate(() => {
-      // 1. Remove common cookie consent modals & dialogs
+      // 1. Close "See more on Facebook" modal if present
+      const closeButtons = Array.from(document.querySelectorAll('[aria-label="Close" i], [aria-label="close" i], div[role="dialog"] [role="button"], div[role="dialog"] button, svg[aria-label="Close" i]'));
+      for (const cb of closeButtons) {
+        try { cb.click(); } catch {}
+      }
+
+      // 2. Remove common cookie consent modals & dialogs
       const cookieButtons = Array.from(document.querySelectorAll('button, [role="button"], div, span'));
       for (const b of cookieButtons) {
         const t = (b.innerText || b.textContent || '').trim().toLowerCase();
@@ -345,7 +370,7 @@ async function dismissOverlays(page) {
         }
       }
 
-      // 2. Remove backdrop layers if any
+      // 3. Remove backdrop layers if any
       document.querySelectorAll('[data-testid="cookie-policy-dialog"], [aria-label*="cookie" i]').forEach(el => el.remove());
     });
   } catch {}
@@ -466,18 +491,25 @@ async function postComment(postUrl, comment) {
     await dismissOverlays(page);
     await delay(1000);
 
-    // Check if redirected to login or checkpoint
-    const loginWall = await page.evaluate(() => {
+    // Check if session is logged in or if Facebook is presenting a login wall
+    const loginStatus = await page.evaluate(() => {
       const u = window.location.href;
       if (u.includes('/login') || u.includes('/checkpoint')) return 'redirected to login/checkpoint';
-      const body = document.body ? document.body.innerText.toLowerCase() : '';
-      if (body.includes('you must log in to continue') || body.includes('log in to facebook')) {
-        return 'login prompt overlay';
+      const hasLoginInputs = !!document.querySelector('input[name="email"], input[id="email"]');
+      const hasGuestBanner = !!document.querySelector('div[role="dialog"] input[name="email"]');
+      const bodyText = document.body ? document.body.innerText.toLowerCase() : '';
+      if (hasLoginInputs || hasGuestBanner || bodyText.includes('see more on facebook') || bodyText.includes('log in to facebook') || bodyText.includes('you must log in')) {
+        return 'Facebook presented guest login wall (not logged in)';
       }
       return null;
     });
-    if (loginWall) {
-      throw new Error(`Facebook session not active (${loginWall}). Please refresh your cookies from facebook.com.`);
+
+    if (loginStatus) {
+      const isProxyOn = process.env.PROXYLAB_ENABLED === 'true';
+      const proxyHint = !isProxyOn
+        ? ' Note: Your Residential Proxy is currently DISABLED in Settings. Meta/Facebook strictly blocks sessions connecting from AWS datacenter IPs. Please enable your Residential Proxy in Settings!'
+        : ' Your cookies may have expired or were logged out in your browser. Please re-export fresh cookies from facebook.com.';
+      throw new Error(`Facebook authentication failed: ${loginStatus}.${proxyHint}`);
     }
 
     // If it's a Reel or Watch page where comments are in a side drawer, try clicking Comment icon
