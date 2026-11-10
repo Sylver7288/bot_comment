@@ -19,6 +19,11 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# Test screenshots
-tiktok_*.png
+# Test screenshots and runtime debug images
+*.png
+public/*_last_*.png
+public/*_page.png
+public/facebook_*.png
+public/instagram_*.png
+public/tiktok_*.png
 
