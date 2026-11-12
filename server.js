@@ -438,7 +438,7 @@ function loadKeywords() {
   try {
     if (fs.existsSync(KEYWORDS_FILE)) {
       const data = JSON.parse(fs.readFileSync(KEYWORDS_FILE, 'utf8'));
-      if (Array.isArray(data) && data.length > 0) return data;
+      if (Array.isArray(data)) return data;
     }
   } catch (e) {
     console.warn('⚠️ Error reading keywords.json:', e.message);
@@ -457,48 +457,47 @@ function saveKeywords(kwList) {
 let keywords = loadKeywords();
 
 async function generateReply(input, sourceType, language = 'Indonesian', useKeyword = true, platformName = 'YouTube') {
+  const isTikTok = /tiktok/i.test(platformName || '');
+  const isSocialClean = /tiktok|facebook|instagram|twitter|\bx\b/i.test(platformName || '');
+  const hasKeyword = Boolean(useKeyword && Array.isArray(keywords) && keywords.length > 0);
+  const chosenKeyword = hasKeyword ? keywords[Math.floor(Math.random() * keywords.length)] : '';
+
+  const buildFallbackReply = () => {
+    if (!hasKeyword) return 'Great video! 🔥';
+    if (isSocialClean) return isTikTok ? `Nice video! ${chosenKeyword} 🔥` : `Great post! #${chosenKeyword}`;
+    return injectRandomEmojis(obfuscateKeyword(`Nice content. #${chosenKeyword}`, chosenKeyword), 'gambling');
+  };
+
   try {
-    const isTikTok = (platformName || '').toLowerCase().includes('tiktok');
-    const chosenKeyword = keywords[Math.floor(Math.random() * keywords.length)];
     if (!openai) {
       botWarn('⚠️ OpenAI API key not configured. Using fallback comment template.');
-      const fallbackText = useKeyword ? (isTikTok ? `Nice video! ${chosenKeyword}` : `Nice video! #${chosenKeyword}`) : 'Great video!';
-      if (isTikTok) return fallbackText;
-      let fallbackReply = useKeyword
-        ? injectRandomEmojis(obfuscateKeyword(fallbackText, chosenKeyword), 'gambling')
-        : fallbackText;
-      return randomizeStyle(fallbackReply);
+      const fb = buildFallbackReply();
+      return isSocialClean ? fb : randomizeStyle(fb);
     }
 
     let prompt;
-    if (useKeyword) {
-      if (isTikTok) {
-        prompt = `You are an authentic, everyday TikTok viewer leaving a quick reaction comment on a short video clip. Write ONLY in ${language} language.
+    if (isSocialClean) {
+      const lengthRule = isTikTok ? '3 to 8 words ONLY' : '5 to 14 words ONLY';
+      const kwRule = hasKeyword
+        ? (isTikTok
+            ? `Naturally include "${chosenKeyword}" without hashtags (#) or shouting.`
+            : `Naturally include "#${chosenKeyword}" once without spam formatting or asterisks.`)
+        : 'Do NOT include any hashtags, brand names, or promotional words.';
+      prompt = `You are a real ${platformName} viewer leaving a quick, authentic reaction comment on a video/post. Write ONLY in ${language} language.
 CRITICAL RULES:
-1. Maximum length: 3 to 8 words ONLY (just like real TikTok users comment).
-2. Casual, natural, everyday viewer style with 1-2 friendly emojis (e.g. ❤️, 🔥, 👌, 😂).
-3. Do NOT write formal literary poetry or long complex sentences.
-4. Naturally include "${chosenKeyword}" in the phrase without shouting.
-5. NO hashtags (#). NO quotes.
-Video context: "${input}"`;
-      } else {
-        prompt = sourceType === 'comments'
-          ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the keyword #${chosenKeyword} at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Comment: "${input}"`
-          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the keyword #${chosenKeyword} at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Post info: "${input}"`;
-      }
+1. Length: ${lengthRule}.
+2. Casual, friendly, everyday human tone with 1-2 natural emojis (e.g. ❤️, 🔥, 👌, 😊).
+3. No formal literary sentences, no markdown asterisks (**), no quotes.
+4. ${kwRule}
+Context: "${input}"`;
+    } else if (hasKeyword) {
+      prompt = sourceType === 'comments'
+        ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Subtly mention the keyword #${chosenKeyword} at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Comment: "${input}"`
+        : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. Subtly mention the keyword #${chosenKeyword} at the end (preserve exact characters, do not confuse the letter "S" with the number "5"). Post info: "${input}"`;
     } else {
-      if (isTikTok) {
-        prompt = `You are an authentic, everyday TikTok viewer leaving a quick reaction comment on a short video clip. Write ONLY in ${language} language.
-CRITICAL RULES:
-1. Maximum length: 3 to 7 words ONLY.
-2. Casual, friendly tone with 1-2 emojis (e.g. ❤️, 🔥, 👌).
-3. NO hashtags, NO promotional words, NO quotes.
-Video context: "${input}"`;
-      } else {
-        prompt = sourceType === 'comments'
-          ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Do NOT mention any brand, keyword, or hashtag. Comment: "${input}"`
-          : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. No brand names or hashtags at all. Post info: "${input}"`;
-      }
+      prompt = sourceType === 'comments'
+        ? `Respond casually and naturally to this ${platformName} comment like a real viewer. Write ONLY in ${language} language. Make it one sentence, avoid generic phrases like "thanks" or "great video". Do NOT mention any brand, keyword, or hashtag. Comment: "${input}"`
+        : `Write a short, engaging, natural-sounding one-sentence reaction comment about this ${platformName} post/video. Write ONLY in ${language} language. Avoid generic praise. Make it feel like an authentic viewer reaction. No brand names or hashtags at all. Post info: "${input}"`;
     }
 
     const response = await openai.chat.completions.create({
@@ -507,46 +506,32 @@ Video context: "${input}"`;
     });
 
     let reply = response.choices[0]?.message?.content?.trim();
-    if (!reply || reply.length < 3) reply = useKeyword ? (isTikTok ? `Nice content. ${chosenKeyword}` : `Nice content. #${chosenKeyword}`) : 'Nice content!';
+    if (!reply || reply.length < 3) return buildFallbackReply();
 
-    // Strip wrapping quotes if AI outputted them
     reply = reply.replace(/^["'“](.*)["'”]$/, '$1').trim();
 
-    // ── Special handling for TikTok ────────────────────────────
-    // For TikTok, keep comments 100% natural and clean:
-    // 1. NO hashtags (#) — write keyword as natural plain text
-    // 2. NO forced gambling emojis (🎰, 💸, 🎲, etc.)
-    // 3. NO letter-spacing or zero-width split characters inside keywords
-    // 4. NO markdown asterisks (**...**) which TikTok renders literally
-    // 5. Ensure "S777" is not misread by AI as "5777"
     if (chosenKeyword && chosenKeyword.toUpperCase().includes('S777')) {
       reply = reply.replace(/\b5777\b/gi, 'S777');
     }
 
-    if (isTikTok) {
-      reply = reply.replace(/#/g, '').trim();
-      if (useKeyword && chosenKeyword && !reply.toLowerCase().includes(chosenKeyword.toLowerCase())) {
-        reply = `${reply} ${chosenKeyword}`;
+    if (isSocialClean) {
+      // Strip markdown bold/zero-width chars so Meta/TikTok/X don't render literal ** or flag obfuscation
+      reply = reply.replace(/\*\*/g, '').replace(/\u200b/g, '').trim();
+      if (isTikTok) reply = reply.replace(/#/g, '').trim();
+      if (hasKeyword && !reply.toLowerCase().includes(chosenKeyword.toLowerCase())) {
+        reply = isTikTok ? `${reply} ${chosenKeyword}` : `${reply} #${chosenKeyword}`;
       }
       return reply;
     }
 
-    // ── For other platforms (YouTube, Telegram, etc.) ─────────
-    if (useKeyword) {
+    if (hasKeyword) {
       reply = obfuscateKeyword(reply, chosenKeyword);
       reply = injectRandomEmojis(reply, 'gambling');
     }
-    reply = randomizeStyle(reply);
-    return reply;
+    return randomizeStyle(reply);
   } catch (err) {
     botError(`❌ AI generation error: ${err.message}`);
-    const isTikTok = (platformName || '').toLowerCase().includes('tiktok');
-    if (isTikTok) {
-      return useKeyword ? `Nice video! ${keywords[0]}` : 'Great video!';
-    }
-    return useKeyword
-      ? injectRandomEmojis(obfuscateKeyword(`Nice content. #${keywords[0]}`, keywords[0]), 'gambling')
-      : 'Great video!';
+    return buildFallbackReply();
   }
 }
 
@@ -1477,7 +1462,8 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
             }
             try {
               botLog(`🔄 Generating ${language} comment for ${platform.icon} ${platform.name}...`);
-              const comment = await generateReply(input, sourceType, language, true, platform.name);
+              const shouldUseKeyword = keywords.length > 0 && (!safeModeEnabled || (Math.random() * 100) < keywordMixRatio);
+              const comment = await generateReply(input, sourceType, language, shouldUseKeyword, platform.name);
               botLog(`💬 Comment text: "${comment}"`);
               botLog(`📤 Posting to ${platform.icon} ${platform.name}...`);
               const postRes = await platform.postComment(currentUrl, comment);
@@ -1933,12 +1919,16 @@ app.get('/api/keywords', requireAuth, (req, res) => {
 
 app.post('/api/keywords', requireAuth, (req, res) => {
   const { keywords: kw } = req.body;
-  if (!Array.isArray(kw) || kw.length === 0) {
-    return res.status(400).json({ error: 'keywords must be a non-empty array' });
+  if (!Array.isArray(kw)) {
+    return res.status(400).json({ error: 'keywords must be an array' });
   }
-  keywords = kw.map(k => k.trim().toUpperCase()).filter(Boolean);
+  keywords = kw.map(k => String(k || '').trim().toUpperCase()).filter(Boolean);
   saveKeywords(keywords);
-  botOk(`✏️ Keywords updated & saved: ${keywords.join(', ')}`);
+  if (keywords.length > 0) {
+    botOk(`✏️ Keywords updated & saved: ${keywords.join(', ')}`);
+  } else {
+    botOk('✏️ Campaign keywords cleared (pure natural AI comments active)');
+  }
   res.json({ success: true, keywords });
 });
 

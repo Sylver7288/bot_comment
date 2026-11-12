@@ -510,7 +510,9 @@ async function loadKeywordBadges() {
     const kw   = await res.json();
     const el   = document.getElementById('keywordBadges');
     if (el) {
-      el.innerHTML = kw.map(k => `<span class="keyword-badge">#${k}</span>`).join('');
+      el.innerHTML = Array.isArray(kw) && kw.length > 0
+        ? kw.map(k => `<span class="keyword-badge">#${escHtml(k)}</span>`).join('')
+        : '<span style="font-size:12px;color:var(--text-muted,#94a3b8);">None (natural organic comments)</span>';
     }
   } catch {}
 }
@@ -1544,12 +1546,10 @@ async function saveKeywords() {
   const raw = document.getElementById('keywordsTextarea').value;
   const kw  = raw.split('\n').map(k => k.trim()).filter(Boolean);
 
-  if (kw.length === 0) { toast('Enter at least one keyword', 'warn'); return; }
-
   try {
     const res = await api('/api/keywords', 'POST', { keywords: kw });
     if (res.ok) {
-      toast('✅ Keywords saved!', 'success');
+      toast(kw.length > 0 ? '✅ Keywords saved!' : '✅ Keywords cleared (natural comments mode)', 'success');
       loadKeywordBadges();
     } else toast('Failed to save keywords', 'error');
   } catch { toast('Network error', 'error'); }
