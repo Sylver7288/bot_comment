@@ -393,6 +393,103 @@ async function dismissOverlays(page) {
   } catch {}
 }
 
+/**
+ * Remove Facebook tracking query params while preserving video/comment identifiers.
+ */
+function cleanFbTrackingParams(rawUrl) {
+  if (!rawUrl) return rawUrl;
+  try {
+    const u = new URL(rawUrl, 'https://www.facebook.com');
+    for (const key of Array.from(u.searchParams.keys())) {
+      if (key.startsWith('__cft__') || key === '__tn__' || key === 'mibextid') {
+        u.searchParams.delete(key);
+      }
+    }
+    return u.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+/**
+ * Extract created comment ID / permalink from a Facebook GraphQL mutation response.
+ */
+function extractCommentInfoFromGraphql(rawText) {
+  const result = { commentId: null, commentUrl: null, error: null };
+  if (!rawText || typeof rawText !== 'string') return result;
+
+  const walk = (obj, depth = 0) => {
+    if (!obj || typeof obj !== 'object' || depth > 12) return;
+    if (Array.isArray(obj)) {
+      for (const item of obj) walk(item, depth + 1);
+      return;
+    }
+
+    const createNode = obj.comment_create?.feedback_comment_edge?.node || obj.feedback_add_comment?.comment;
+    if (createNode && typeof createNode === 'object') {
+      if (createNode.legacy_fbid) result.commentId = String(createNode.legacy_fbid);
+      if (typeof createNode.url === 'string' && createNode.url.includes('facebook.com')) {
+        result.commentUrl = cleanFbTrackingParams(createNode.url);
+      } else if (typeof createNode.permalink_url === 'string' && createNode.permalink_url.includes('facebook.com')) {
+        result.commentUrl = cleanFbTrackingParams(createNode.permalink_url);
+      }
+    }
+
+    if (obj.errorDescription && typeof obj.errorDescription === 'string') {
+      result.error = obj.errorDescription;
+    }
+
+    for (const key of Object.keys(obj)) {
+      if (key !== 'extensions' && typeof obj[key] === 'object') {
+        walk(obj[key], depth + 1);
+      }
+    }
+  };
+
+  for (const line of rawText.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith('{')) continue;
+    try {
+      walk(JSON.parse(trimmed));
+    } catch {}
+  }
+  return result;
+}
+
+/**
+ * Scan rendered Facebook comments for our newly posted comment and return its permalink if present.
+ */
+async function extractCommentUrlFromDom(page, comment) {
+  try {
+    const snippet = String(comment || '').replace(/\s+/g, ' ').trim().slice(0, 24);
+    if (!snippet) return null;
+
+    const rawHref = await page.evaluate((textSnippet) => {
+      const articles = Array.from(document.querySelectorAll('div[role="article"], ul li, div[aria-label*="Comment by" i]'));
+      for (let i = articles.length - 1; i >= 0; i--) {
+        const box = articles[i];
+        const boxText = (box.innerText || '').replace(/\s+/g, ' ');
+        if (!boxText.includes(textSnippet)) continue;
+        const link = box.querySelector('a[href*="comment_id="]');
+        if (link && link.href) return link.href;
+      }
+      const allCommentLinks = Array.from(document.querySelectorAll('a[href*="comment_id="]'));
+      if (allCommentLinks.length > 0) {
+        const lastLink = allCommentLinks[allCommentLinks.length - 1];
+        const container = lastLink.closest('div[role="article"]');
+        if (container && (container.innerText || '').replace(/\s+/g, ' ').includes(textSnippet)) {
+          return lastLink.href;
+        }
+      }
+      return null;
+    }, snippet);
+
+    return rawHref ? cleanFbTrackingParams(rawHref) : null;
+  } catch {
+    return null;
+  }
+}
+
 async function resolveDirectVideoUrl(page, rawUrl) {
   let cleanUrl = rawUrl.trim();
   if (cleanUrl.includes('facebook.com') && cleanUrl.includes('?')) {
@@ -605,21 +702,40 @@ async function postComment(postUrl, comment) {
       await page.screenshot({ path: editorProof });
     } catch {}
 
-    // Facebook comments submit on pressing Enter
-    console.log('🚀 Submitting comment by pressing Enter...');
-    await page.keyboard.press('Enter');
-    await delay(1500);
+    // Intercept Facebook GraphQL mutation response to capture direct comment link / errors
+    const graphqlInfo = { commentId: null, commentUrl: null, error: null };
+    const onGraphqlResponse = async (res) => {
+      try {
+        if (!res.url().includes('/api/graphql')) return;
+        const body = await res.text();
+        if (!body.includes('comment_create') && !body.includes('feedback_add_comment')) return;
+        const parsed = extractCommentInfoFromGraphql(body);
+        if (parsed.commentId) graphqlInfo.commentId = parsed.commentId;
+        if (parsed.commentUrl) graphqlInfo.commentUrl = parsed.commentUrl;
+        if (parsed.error && !graphqlInfo.error) graphqlInfo.error = parsed.error;
+      } catch {}
+    };
+    page.on('response', onGraphqlResponse);
 
-    // Some layouts have an explicit send button (paper airplane icon or "Comment" button)
-    await page.evaluate(() => {
-      const sendBtn = Array.from(document.querySelectorAll('[role="button"], button')).find(b => {
-        const aria = (b.getAttribute('aria-label') || '').toLowerCase();
-        return aria === 'comment' || aria === 'post' || aria === 'send' || aria.includes('submit');
+    try {
+      // Facebook comments submit on pressing Enter
+      console.log('🚀 Submitting comment by pressing Enter...');
+      await page.keyboard.press('Enter');
+      await delay(1500);
+
+      // Some layouts have an explicit send button (paper airplane icon or "Comment" button)
+      await page.evaluate(() => {
+        const sendBtn = Array.from(document.querySelectorAll('[role="button"], button')).find(b => {
+          const aria = (b.getAttribute('aria-label') || '').toLowerCase();
+          return aria === 'comment' || aria === 'post' || aria === 'send' || aria.includes('submit');
+        });
+        if (sendBtn) sendBtn.click();
       });
-      if (sendBtn) sendBtn.click();
-    });
 
-    await delay(5000);
+      await delay(5000);
+    } finally {
+      page.off('response', onGraphqlResponse);
+    }
 
     // Proof screenshot
     try {
@@ -628,13 +744,28 @@ async function postComment(postUrl, comment) {
       console.log('📸 Saved proof screenshot to public/facebook_last_post.png');
     } catch {}
 
+    const finalPostUrl = cleanFbTrackingParams(page.url() || cleanUrl);
+    let resolvedCommentUrl = graphqlInfo.commentUrl || (await extractCommentUrlFromDom(page, comment));
+    if (!resolvedCommentUrl && graphqlInfo.commentId) {
+      try {
+        const u = new URL(finalPostUrl);
+        u.searchParams.set('comment_id', graphqlInfo.commentId);
+        resolvedCommentUrl = u.toString();
+      } catch {}
+    }
+
+    if (graphqlInfo.error && !resolvedCommentUrl) {
+      console.warn(`⚠️ Facebook GraphQL comment warning: ${graphqlInfo.error}`);
+    }
+
     if (account && account.id) {
       recordAccountPostSuccess(account.id);
     }
 
     return {
       success: true,
-      url: postUrl,
+      url: finalPostUrl,
+      commentUrl: resolvedCommentUrl || null,
       comment,
       account: accountName,
       timestamp: new Date().toISOString(),

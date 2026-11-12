@@ -1481,13 +1481,16 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
               botLog(`💬 Comment text: "${comment}"`);
               botLog(`📤 Posting to ${platform.icon} ${platform.name}...`);
               const postRes = await platform.postComment(currentUrl, comment);
+              const postPageUrl = (postRes && postRes.url) ? postRes.url : currentUrl;
+              const postedLink = (postRes && postRes.commentUrl) ? postRes.commentUrl : postPageUrl;
               stats.platformStats[platformId] = (stats.platformStats[platformId] || 0) + 1;
               stats.commentsPosted++;
               stats.lastCommentTime = Date.now();
               stats.commentHistory.unshift({
                 platform: platform.name,
                 icon: platform.icon,
-                label: currentUrl.replace(/^https?:\/\/(www\.)?/, '').slice(0, 26) + '...',
+                url: postedLink,
+                label: postedLink.replace(/^https?:\/\/(www\.)?/, '').slice(0, 32) + '...',
                 language,
                 comment,
                 time: Date.now(),
@@ -1495,9 +1498,13 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
                 failed: 0,
               });
               if (stats.commentHistory.length > 50) stats.commentHistory.pop();
-              sendTelegram(`✅ Posted comment to <b>${platform.icon} ${platform.name}</b>\n🔗 <code>${currentUrl}</code>\n💬 "${comment.substring(0, 100)}..."`);
-              const urlSuffix = postRes && postRes.url && postRes.url !== currentUrl ? ` (at ${postRes.url})` : '';
-              botOk(`✅ ${platform.icon} ${platform.name} posted: "${comment}"${urlSuffix}`);
+              sendTelegram(`✅ Posted comment to <b>${platform.icon} ${platform.name}</b>\n🔗 <code>${postedLink}</code>\n💬 "${comment.substring(0, 100)}..."`);
+              botOk(`✅ ${platform.icon} ${platform.name} posted: "${comment}"`);
+              if (postRes && postRes.commentUrl) {
+                botLog(`🔗 Direct comment link: ${postRes.commentUrl}`);
+              } else {
+                botLog(`🔗 Posted at: ${postPageUrl}`);
+              }
               if (platformId === 'tiktok') {
                 botLog(`📸 View proof screenshot at: https://botcomment.ink/tiktok_last_post.png`);
               } else if (platformId === 'facebook') {
@@ -1505,7 +1512,7 @@ app.post('/api/post-comment', requireAuth, async (req, res) => {
               } else if (platformId === 'instagram') {
                 botLog(`📸 View proof screenshot at: https://botcomment.ink/instagram_last_post.png`);
               }
-              io.emit('platformDone', { platform: platformId, success: [platformId], comment, failed: [] });
+              io.emit('platformDone', { platform: platformId, success: [platformId], comment, url: postedLink, failed: [] });
             } catch (err) {
               botError(`❌ ${platform.icon} ${platform.name} failed: ${err.message}`);
               if (platformId === 'tiktok') {

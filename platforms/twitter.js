@@ -195,7 +195,8 @@ async function postComment(tweetUrl, comment) {
 
   const { data } = await client.v2.reply(comment, tweetId);
   recordAccountPost(activeAccount?.id);
-  return { success: true, tweetId: data.id, platform: 'twitter', account: activeAccount?.name };
+  const replyUrl = data?.id ? `https://x.com/i/web/status/${data.id}` : tweetUrl;
+  return { success: true, tweetId: data.id, url: replyUrl, commentUrl: replyUrl, platform: 'twitter', account: activeAccount?.name };
 }
 
 async function testConnection() {

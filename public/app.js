@@ -424,13 +424,17 @@ function renderActivity(history) {
     const d = new Date(h.time);
     const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     const targetLabel = h.label || (h.videoId ? `yt/${h.videoId}` : (h.platform || 'Comment Blast'));
+    const targetHref = h.url || (h.videoId ? `https://www.youtube.com/watch?v=${h.videoId}` : '');
     const icon = h.icon || (h.videoId ? '🎥' : '💬');
     const platform = h.platform || (h.videoId ? 'YouTube' : 'Post');
+    const labelHtml = targetHref
+      ? `<a href="${escHtml(targetHref)}" target="_blank" rel="noopener noreferrer" style="color:var(--accent-primary, #6366f1);text-decoration:underline;"><code>${escHtml(targetLabel)}</code></a>`
+      : `<code>${escHtml(targetLabel)}</code>`;
     return `
       <div class="activity-item">
         <span class="activity-platform-badge">${icon} ${escHtml(platform)}</span>
         <span style="display:flex;align-items:center;gap:6px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-          <code>${escHtml(targetLabel)}</code>
+          ${labelHtml}
         </span>
         <span class="badge badge-green">${h.success || 1} ok</span>
         ${h.failed > 0 ? `<span class="badge badge-red">${h.failed} fail</span>` : ''}
@@ -1576,6 +1580,22 @@ function saveDefaultCountry() {
 }
 
 // ─── Terminal Log ────────────────────────────────────────────
+function formatTerminalMessage(msg) {
+  const raw = String(msg || '');
+  const urlRegex = /(https?:\/\/[^\s<>"')]+)/g;
+  let lastIndex = 0;
+  let out = '';
+  let match;
+  while ((match = urlRegex.exec(raw)) !== null) {
+    out += escHtml(raw.slice(lastIndex, match.index));
+    const url = match[1];
+    out += `<a href="${escHtml(url)}" target="_blank" rel="noopener noreferrer" style="color:#38bdf8;text-decoration:underline;">${escHtml(url)}</a>`;
+    lastIndex = urlRegex.lastIndex;
+  }
+  out += escHtml(raw.slice(lastIndex));
+  return out;
+}
+
 function appendLog(entry, terminalId) {
   const el = document.getElementById(terminalId);
   if (!el) return;
@@ -1583,7 +1603,7 @@ function appendLog(entry, terminalId) {
   const ts   = new Date(entry.timestamp).toLocaleTimeString('en-GB', { hour12: false });
   const line = document.createElement('div');
   line.className = `terminal-line ${entry.level}`;
-  line.innerHTML = `<span class="ts">${ts}</span><span class="msg">${escHtml(entry.message)}</span>`;
+  line.innerHTML = `<span class="ts">${ts}</span><span class="msg">${formatTerminalMessage(entry.message)}</span>`;
   el.appendChild(line);
 
   // Auto-scroll
